@@ -1,0 +1,148 @@
+import '../../../../core/constants/asset_constants.dart';
+import '../models/salon_model.dart';
+
+class SalonData {
+  SalonData._();
+
+  static const List<SalonModel> maleSalons = [
+    SalonModel(
+      id: 'ms_1',
+      name: 'The Groom Room',
+      rating: 4.8,
+      reviewCount: 340,
+      distance: '1.2 km',
+      priceTier: '₹₹',
+      category: 'Men\'s Grooming • Barber',
+      isOpen: true,
+      imagePath: AssetConstants.onboarding1,
+      address: 'Civil Lines, Kanpur',
+      isFavorite: true,
+    ),
+    SalonModel(
+      id: 'ms_2',
+      name: 'Royalty Barber Lounge',
+      rating: 4.9,
+      reviewCount: 512,
+      distance: '2.5 km',
+      priceTier: '₹₹₹',
+      category: 'Luxury Barber • Spa',
+      isOpen: true,
+      imagePath: AssetConstants.rolePartner,
+      address: 'Swaroop Nagar, Kanpur',
+      isFavorite: false,
+    ),
+    SalonModel(
+      id: 'ms_3',
+      name: 'Gentlemen\'s Club Salon',
+      rating: 4.7,
+      reviewCount: 210,
+      distance: '3.1 km',
+      priceTier: '₹₹',
+      category: 'Haircut • Beard Spa',
+      isOpen: true,
+      imagePath: AssetConstants.prefMale,
+      address: 'Mall Road, Kanpur',
+      isFavorite: false,
+    ),
+  ];
+
+  static const List<SalonModel> featuredMaleSalons = [
+    SalonModel(
+      id: 'fms_1',
+      name: 'Apex Grooming Studio',
+      rating: 4.9,
+      reviewCount: 410,
+      distance: '0.9 km',
+      priceTier: '₹₹₹',
+      category: 'Barber • Beard Sculpting',
+      isOpen: true,
+      imagePath: AssetConstants.maleBanner1,
+      address: 'Kakadeo, Kanpur',
+      isFavorite: false,
+    ),
+    SalonModel(
+      id: 'fms_2',
+      name: 'Vintage Barber House',
+      rating: 4.8,
+      reviewCount: 195,
+      distance: '1.8 km',
+      priceTier: '₹₹',
+      category: 'Classic Cut • Shave',
+      isOpen: true,
+      imagePath: AssetConstants.onboarding2,
+      address: 'Kidwai Nagar, Kanpur',
+      isFavorite: false,
+    ),
+  ];
+
+  static const List<SalonModel> femaleSalons = [
+    SalonModel(
+      id: 'fs_1',
+      name: 'Glow Beauty Studio',
+      rating: 4.9,
+      reviewCount: 680,
+      distance: '0.8 km',
+      priceTier: '₹₹₹',
+      category: 'Beauty • Hair • Skin',
+      isOpen: true,
+      imagePath: AssetConstants.onboarding3,
+      address: 'Swaroop Nagar, Kanpur',
+      isFavorite: true,
+    ),
+    SalonModel(
+      id: 'fs_2',
+      name: 'Maison De Élégance',
+      rating: 4.8,
+      reviewCount: 420,
+      distance: '1.7 km',
+      priceTier: '₹₹₹₹',
+      category: 'Luxury Hair & Makeup',
+      isOpen: true,
+      imagePath: AssetConstants.prefFemale,
+      address: 'Civil Lines, Kanpur',
+      isFavorite: false,
+    ),
+    SalonModel(
+      id: 'fs_3',
+      name: 'Blush & Petal Salon',
+      rating: 4.7,
+      reviewCount: 290,
+      distance: '2.2 km',
+      priceTier: '₹₹',
+      category: 'Nail Spa • Skincare',
+      isOpen: true,
+      imagePath: AssetConstants.onboarding2,
+      address: 'Tilak Nagar, Kanpur',
+      isFavorite: false,
+    ),
+  ];
+
+  static const List<SalonModel> featuredFemaleSalons = [
+    SalonModel(
+      id: 'ffs_1',
+      name: 'Velvet Rose Beauty Lounge',
+      rating: 4.9,
+      reviewCount: 520,
+      distance: '1.1 km',
+      priceTier: '₹₹₹',
+      category: 'Hair Couture • Skincare',
+      isOpen: true,
+      imagePath: AssetConstants.femaleLoginIllu,
+      address: 'Arya Nagar, Kanpur',
+      isFavorite: false,
+    ),
+    SalonModel(
+      id: 'ffs_2',
+      name: 'Aura Luxury Spa',
+      rating: 4.8,
+      reviewCount: 310,
+      distance: '2.0 km',
+      priceTier: '₹₹₹₹',
+      category: 'Facial • Spa • Nails',
+      isOpen: true,
+      imagePath: AssetConstants.onboarding1,
+      address: 'Civil Lines, Kanpur',
+      isFavorite: false,
+    ),
+  ];
+}

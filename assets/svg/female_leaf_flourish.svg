@@ -1,0 +1,6 @@
+<svg width="400" height="200" viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M-50 180C100 120 250 200 450 140V220H-50V180Z" fill="#F5E6E3" fill-opacity="0.6"/>
+  <path d="M-50 200C120 140 280 220 450 160V220H-50V200Z" fill="#D98880" fill-opacity="0.3"/>
+  <path d="M300 200C320 150 360 120 380 90C370 120 340 160 300 200Z" fill="#D98880" fill-opacity="0.4"/>
+  <path d="M340 200C355 165 385 140 395 110C388 135 365 168 340 200Z" fill="#C58276" fill-opacity="0.5"/>
+</svg>
