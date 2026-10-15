@@ -29,41 +29,47 @@ class HomeHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Left: Location & Greeting
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on_rounded,
-                    size: 16,
-                    color: colors.primary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    locationName,
-                    style: AppTextStyles.bodyBold(color: colors.textPrimary).copyWith(
-                      fontSize: 14,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.location_on_rounded,
+                      size: 16,
+                      color: colors.primary,
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 18,
-                    color: colors.textSecondary,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                greetingText,
-                style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                    const SizedBox(width: 4),
+                    Text(
+                      locationName,
+                      style: AppTextStyles.bodyBold(color: colors.textPrimary).copyWith(
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: colors.textSecondary,
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  greetingText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 12),
           // Right: Notification & Profile Avatar
           Row(
             children: [

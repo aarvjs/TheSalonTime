@@ -30,14 +30,20 @@ class SalonSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                title,
-                style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               AppTextButton(
                 text: 'See All →',
                 color: colors.primary,
@@ -48,7 +54,7 @@ class SalonSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 248,
+          height: 256,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),

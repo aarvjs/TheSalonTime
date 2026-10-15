@@ -39,6 +39,7 @@ class SalonCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Salon Image with Floating Favorite Button & Rating Badge
             Stack(
@@ -47,7 +48,7 @@ class SalonCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
                   child: AppImage(
                     imagePath: salon.imagePath,
-                    height: 135,
+                    height: 128,
                     width: double.infinity,
                     fit: BoxFit.cover,
                   ),
@@ -116,9 +117,10 @@ class SalonCard extends StatelessWidget {
             ),
             // Salon Info Body
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

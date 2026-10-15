@@ -30,6 +30,8 @@ class OnboardingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLastPage = pageIndex == totalPages - 1;
 
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Stack(
       children: [
         // Upper Photo Area
@@ -37,7 +39,7 @@ class OnboardingPage extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          bottom: 240,
+          bottom: 245 + bottomPadding,
           child: OnboardingImage(
             imagePath: model.imagePath,
             showBackButton: pageIndex > 0,
@@ -51,7 +53,7 @@ class OnboardingPage extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          height: 310,
+          height: 320 + bottomPadding,
           child: Stack(
             clipBehavior: Clip.none,
             children: [

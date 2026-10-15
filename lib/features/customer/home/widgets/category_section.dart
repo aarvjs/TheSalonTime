@@ -40,7 +40,7 @@ class _CategorySectionState extends State<CategorySection> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 80,
+          height: 86,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),

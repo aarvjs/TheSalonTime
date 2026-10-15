@@ -173,13 +173,18 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          salonName,
-                          style: AppTextStyles.h3(color: colors.textPrimary).copyWith(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                        Expanded(
+                          child: Text(
+                            salonName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.h3(color: colors.textPrimary).copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -207,6 +212,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       serviceName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.subtitle(color: colors.textSecondary).copyWith(
                         fontSize: 13,
                       ),

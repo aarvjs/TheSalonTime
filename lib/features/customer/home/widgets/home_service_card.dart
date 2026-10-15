@@ -41,13 +41,17 @@ class HomeServiceCard extends StatelessWidget {
                   children: [
                     Icon(Icons.home_work_rounded, size: 16, color: colors.primary),
                     const SizedBox(width: 6),
-                    Text(
-                      'HOME SERVICE AVAILABLE',
-                      style: TextStyle(
-                        color: colors.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
+                    Expanded(
+                      child: Text(
+                        'HOME SERVICE AVAILABLE',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
                       ),
                     ),
                   ],
@@ -55,6 +59,8 @@ class HomeServiceCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'Beauty at Your Doorstep',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -63,6 +69,8 @@ class HomeServiceCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Enjoy professional salon services from the comfort of your home.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.subtitle(color: colors.textSecondary).copyWith(
                     fontSize: 12,
                     height: 1.4,
@@ -71,8 +79,8 @@ class HomeServiceCard extends StatelessWidget {
                 const SizedBox(height: 14),
                 AppButton(
                   text: 'Explore Home Service',
-                  height: 42,
-                  width: 175,
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   backgroundColor: colors.primary,
                   onPressed: onExploreTap ?? () {},
                 ),

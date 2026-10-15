@@ -51,13 +51,17 @@ class HomeServiceBanner extends StatelessWidget {
                   children: [
                     Icon(Icons.home_work_rounded, size: 15, color: colors.primary),
                     const SizedBox(width: 5),
-                    Text(
-                      tag,
-                      style: TextStyle(
-                        color: colors.primary,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
+                    Expanded(
+                      child: Text(
+                        tag,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
                       ),
                     ),
                   ],
@@ -65,6 +69,8 @@ class HomeServiceBanner extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -73,6 +79,8 @@ class HomeServiceBanner extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.subtitle(color: colors.textSecondary).copyWith(
                     fontSize: 11.5,
                     height: 1.4,
@@ -81,8 +89,8 @@ class HomeServiceBanner extends StatelessWidget {
                 const SizedBox(height: 14),
                 AppButton(
                   text: 'Explore Home Service',
-                  height: 40,
-                  width: 170,
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   backgroundColor: colors.primary,
                   onPressed: onExploreTap ?? () {},
                 ),

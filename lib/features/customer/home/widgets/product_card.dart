@@ -44,7 +44,7 @@ class ProductCard extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
                 child: AppImage(
                   imagePath: product.imagePath,
-                  height: 115,
+                  height: 110,
                   width: double.infinity,
                   fit: BoxFit.cover,
                 ),
@@ -74,9 +74,10 @@ class ProductCard extends StatelessWidget {
           ),
           // Details Body
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   product.category.toUpperCase(),
@@ -101,27 +102,29 @@ class ProductCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '₹${product.price.toInt()}',
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (product.originalPrice > product.price)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            '₹${product.originalPrice.toInt()}',
+                            '₹${product.price.toInt()}',
                             style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 10,
-                              decoration: TextDecoration.lineThrough,
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                      ],
+                          if (product.originalPrice > product.price)
+                            Text(
+                              '₹${product.originalPrice.toInt()}',
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 10,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     GestureDetector(
                       onTap: onAddToCart,

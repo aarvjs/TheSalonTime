@@ -37,43 +37,49 @@ class ServiceCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
               child: AppImage(
                 imagePath: service.imagePath,
-                height: 110,
+                height: 102,
                 width: double.infinity,
                 fit: BoxFit.cover,
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     service.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.bodyBold(color: colors.textPrimary).copyWith(
-                      fontSize: 13.5,
+                      fontSize: 13,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Row(
                     children: [
                       Icon(Icons.schedule_rounded, size: 12, color: colors.textMuted),
                       const SizedBox(width: 3),
-                      Text(
-                        service.duration,
-                        style: AppTextStyles.caption(color: colors.textMuted).copyWith(
-                          fontSize: 11,
+                      Expanded(
+                        child: Text(
+                          service.duration,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption(color: colors.textMuted).copyWith(
+                            fontSize: 10.5,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -81,25 +87,26 @@ class ServiceCard extends StatelessWidget {
                         'From ₹${service.price.toInt()}',
                         style: TextStyle(
                           color: colors.primary,
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: colors.surface,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star_rounded, size: 12, color: Color(0xFFFFC107)),
+                            const Icon(Icons.star_rounded, size: 11, color: Color(0xFFFFC107)),
                             const SizedBox(width: 2),
                             Text(
                               '${service.rating}',
                               style: TextStyle(
                                 color: colors.textPrimary,
-                                fontSize: 10.5,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),

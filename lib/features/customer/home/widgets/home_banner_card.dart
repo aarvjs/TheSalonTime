@@ -67,15 +67,20 @@ class HomeBannerCard extends StatelessWidget {
               ),
             ),
             // Text Content on the left
-            Positioned.fill(
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              right: MediaQuery.of(context).size.width * 0.40,
               child: Padding(
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: banner.accentColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
@@ -88,57 +93,57 @@ class HomeBannerCard extends StatelessWidget {
                         banner.smallLabel,
                         style: TextStyle(
                           color: banner.accentColor,
-                          fontSize: 10,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width * 0.52,
-                      child: Text(
-                        banner.title,
-                        style: AppTextStyles.h2(color: banner.textColor).copyWith(
-                          fontSize: 20,
-                          height: 1.25,
-                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
                         ),
                       ),
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width * 0.5,
-                      child: Text(
-                        banner.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: banner.textColor.withValues(alpha: 0.8),
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
+                    Text(
+                      banner.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.h2(color: banner.textColor).copyWith(
+                        fontSize: 17,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 4),
+                    Text(
+                      banner.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: banner.textColor.withValues(alpha: 0.8),
+                        fontSize: 11,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     GestureDetector(
                       onTap: onTap,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            banner.ctaText,
-                            style: TextStyle(
-                              color: banner.accentColor,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
+                          Flexible(
+                            child: Text(
+                              banner.ctaText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: banner.accentColor,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
                             Icons.arrow_forward_rounded,
-                            size: 16,
+                            size: 15,
                             color: banner.accentColor,
                           ),
                         ],

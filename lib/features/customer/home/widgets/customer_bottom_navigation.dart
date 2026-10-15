@@ -24,11 +24,11 @@ class CustomerBottomNavigation extends StatelessWidget {
     ];
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      height: 68,
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      height: 64,
       decoration: BoxDecoration(
         color: colors.cardBackground,
-        borderRadius: BorderRadius.circular(34),
+        borderRadius: BorderRadius.circular(32),
         border: Border.all(color: colors.border, width: 1.2),
         boxShadow: [
           BoxShadow(
@@ -49,27 +49,30 @@ class CustomerBottomNavigation extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected
                     ? colors.primary.withValues(alpha: 0.12)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     item.icon,
-                    size: 22,
+                    size: 21,
                     color: isSelected ? colors.primary : colors.textMuted,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isSelected ? colors.primary : colors.textMuted,
-                      fontSize: 10.5,
+                      fontSize: 10,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),

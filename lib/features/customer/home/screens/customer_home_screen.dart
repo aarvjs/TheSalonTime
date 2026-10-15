@@ -36,108 +36,173 @@ class CustomerHomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 110),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Top Header & Greeting
-              HomeHeader(
-                locationName: 'Kanpur',
-                greetingText: isMale ? 'Good evening, Arvind' : 'Good evening, Ananya',
-                avatarPath: avatarAsset,
-                onNotificationTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('No new notifications')),
-                  );
-                },
-                onProfileTap: () {},
+          slivers: [
+            // 1. Top Header & Greeting (Scrolls away)
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  HomeHeader(
+                    locationName: 'Kanpur',
+                    greetingText: isMale ? 'Good evening, Arvind' : 'Good evening, Ananya',
+                    avatarPath: avatarAsset,
+                    onNotificationTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('No new notifications')),
+                      );
+                    },
+                    onProfileTap: () {},
+                  ),
+                  const SizedBox(height: 2),
+                ],
               ),
-              const SizedBox(height: 6),
+            ),
 
-              // 2. Search Bar
-              HomeSearchBar(
-                hintText: isMale
-                    ? 'Search salons, grooming or services'
-                    : 'Search salons, services or products',
-              ),
-              const SizedBox(height: 16),
-
-              // 3. ONE Promotional Banner Slider
-              HomeBannerSlider(banners: banners),
-              const SizedBox(height: 24),
-
-              // 4. Explore Categories (Compact circular)
-              CategorySection(
-                categories: categories,
-                onCategorySelected: (cat) {},
-              ),
-              const SizedBox(height: 24),
-
-              // 5. Salons Near You
-              SalonSection(
-                title: 'Salons Near You',
-                salons: salons,
-                onSeeAllTap: () {},
-              ),
-              const SizedBox(height: 24),
-
-              // 6 & 7. Grooming Services (Male) vs Beauty Picks & Popular Services (Female)
-              if (isMale) ...[
-                // Popular Grooming Services
-                ServiceSection(
-                  title: 'Popular Grooming Services',
-                  subtitle: 'Trending grooming services for men',
-                  services: services,
-                  onSeeAllTap: () {},
-                ),
-                const SizedBox(height: 24),
-              ] else ...[
-                // Beauty Picks For You
-                ProductSection(
-                  products: products,
-                  onSeeAllTap: () {},
-                ),
-                const SizedBox(height: 24),
-                // Popular Beauty Services
-                ServiceSection(
-                  title: 'Popular Beauty Services',
-                  subtitle: 'Top rated pampering services',
-                  services: services,
-                  onSeeAllTap: () {},
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // 8. Home Service Banner
-              HomeServiceBanner(
-                onExploreTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: colors.primary,
-                      content: Text(
-                        isMale
-                            ? 'Exploring At-Home Grooming Services...'
-                            : 'Exploring At-Home Beauty Services...',
-                      ),
+            // 2. Sticky / Static Search Bar (Pins to top when scrolled)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _StickySearchBarDelegate(
+                height: 72,
+                builder: (context, isPinned) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: colors.background,
+                      boxShadow: isPinned
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: HomeSearchBar(
+                      hintText: isMale
+                          ? 'Search salons, grooming or services'
+                          : 'Search salons, services or products',
                     ),
                   );
                 },
               ),
-              const SizedBox(height: 24),
+            ),
 
-              // 9. Featured Salons
-              SalonSection(
-                title: 'Featured Salons',
-                salons: featuredSalons,
-                onSeeAllTap: () {},
+            // 3. Scrollable Main Page Content
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 110),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+
+                    // Promotional Banner Slider
+                    HomeBannerSlider(banners: banners),
+                    const SizedBox(height: 24),
+
+                    // Explore Categories (Compact circular)
+                    CategorySection(
+                      categories: categories,
+                      onCategorySelected: (cat) {},
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Salons Near You
+                    SalonSection(
+                      title: 'Salons Near You',
+                      salons: salons,
+                      onSeeAllTap: () {},
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Grooming Services (Male) vs Beauty Picks & Popular Services (Female)
+                    if (isMale) ...[
+                      // Popular Grooming Services
+                      ServiceSection(
+                        title: 'Popular Grooming Services',
+                        subtitle: 'Trending grooming services for men',
+                        services: services,
+                        onSeeAllTap: () {},
+                      ),
+                      const SizedBox(height: 24),
+                    ] else ...[
+                      // Beauty Picks For You
+                      ProductSection(
+                        products: products,
+                        onSeeAllTap: () {},
+                      ),
+                      const SizedBox(height: 24),
+                      // Popular Beauty Services
+                      ServiceSection(
+                        title: 'Popular Beauty Services',
+                        subtitle: 'Top rated pampering services',
+                        services: services,
+                        onSeeAllTap: () {},
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // Home Service Banner
+                    HomeServiceBanner(
+                      onExploreTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: colors.primary,
+                            content: Text(
+                              isMale
+                                  ? 'Exploring At-Home Grooming Services...'
+                                  : 'Exploring At-Home Beauty Services...',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Featured Salons
+                    SalonSection(
+                      title: 'Featured Salons',
+                      salons: featuredSalons,
+                      onSeeAllTap: () {},
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+class _StickySearchBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget Function(BuildContext context, bool isPinned) builder;
+  final double height;
+
+  _StickySearchBarDelegate({
+    required this.builder,
+    this.height = 72.0,
+  });
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox(
+      height: height,
+      child: builder(context, shrinkOffset > 5),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickySearchBarDelegate oldDelegate) {
+    return oldDelegate.height != height;
   }
 }

@@ -50,13 +50,16 @@ class _CustomerNavigationShellState extends State<CustomerNavigationShell> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: CustomerBottomNavigation(
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
+            child: SafeArea(
+              top: false,
+              child: CustomerBottomNavigation(
+                currentIndex: _currentIndex,
+                onTap: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+              ),
             ),
           ),
         ],

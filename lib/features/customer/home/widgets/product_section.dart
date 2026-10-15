@@ -26,26 +26,34 @@ class ProductSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Beauty Picks For You',
-                    style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Beauty Picks For You',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Products curated for your beauty routine',
-                    style: AppTextStyles.subtitle(color: colors.textMuted).copyWith(
-                      fontSize: 12,
+                    const SizedBox(height: 2),
+                    Text(
+                      'Products curated for your beauty routine',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.subtitle(color: colors.textMuted).copyWith(
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               AppTextButton(
                 text: 'See All →',
                 color: colors.primary,
@@ -56,7 +64,7 @@ class ProductSection extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: 238,
+          height: 244,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),

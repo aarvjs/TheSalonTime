@@ -13,6 +13,7 @@ class AppButton extends StatelessWidget {
   final IconData? icon;
   final double? width;
   final double height;
+  final EdgeInsetsGeometry? padding;
 
   const AppButton({
     super.key,
@@ -25,6 +26,7 @@ class AppButton extends StatelessWidget {
     this.icon,
     this.width,
     this.height = AppDimensions.buttonHeight,
+    this.padding,
   });
 
   @override
@@ -63,7 +65,7 @@ class AppButton extends StatelessWidget {
                   ? BorderSide(color: bg, width: 1.5)
                   : BorderSide.none,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: AppDimensions.lg),
+            padding: padding ?? const EdgeInsets.symmetric(horizontal: 14),
           ),
           child: isLoading
               ? SizedBox(
@@ -76,21 +78,24 @@ class AppButton extends StatelessWidget {
                     ),
                   ),
                 )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      text,
-                      style: AppTextStyles.button(
-                        color: isOutlined ? bg : fg,
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        text,
+                        style: AppTextStyles.button(
+                          color: isOutlined ? bg : fg,
+                        ),
                       ),
-                    ),
-                    if (icon != null) ...[
-                      const SizedBox(width: AppDimensions.sm),
-                      Icon(icon, size: 18, color: isOutlined ? bg : fg),
+                      if (icon != null) ...[
+                        const SizedBox(width: AppDimensions.sm),
+                        Icon(icon, size: 18, color: isOutlined ? bg : fg),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
         ),
       ),
