@@ -66,9 +66,14 @@ class AppColors {
   static const Color partnerPrimary = Color(0xFFC86D51);
   static const Color partnerSecondary = Color(0xFFD4AF37);
 
-  // Manager Specific
-  static const Color managerCopper = Color(0xFFA84D32);
+  // Manager Specific (Executive Forest Emerald & Champagne Gold)
+  static const Color managerEmerald = Color(0xFF1B4332);
+  static const Color managerEmeraldLight = Color(0xFF2D6A4F);
+  static const Color managerEmeraldBg = Color(0xFFEDF4F1);
+  static const Color managerCopper = managerEmerald;
   static const Color managerGold = Color(0xFFC5A059);
+  static const Color managerGoldLight = Color(0xFFFBF6ED);
+  static const Color managerBorder = Color(0xFFDFE7E2);
 
   // 1. Default Brand Theme
   static const AppColorsData defaultTheme = AppColorsData(
@@ -142,20 +147,20 @@ class AppColors {
     iconAccent: champagneGold,
   );
 
-  // 5. Branch Manager Theme
+  // 5. Branch Manager Theme (Executive Deep Forest Emerald & Champagne Gold)
   static const AppColorsData managerTheme = AppColorsData(
-    primary: managerCopper,
-    primaryDark: Color(0xFF8A3B23),
-    primaryLight: Color(0xFFC76D52),
+    primary: managerEmerald,
+    primaryDark: Color(0xFF132F23),
+    primaryLight: managerEmeraldLight,
     secondary: managerGold,
     accent: managerGold,
     background: warmIvory,
     cardBackground: pureWhite,
-    surface: warmGray,
+    surface: managerEmeraldBg,
     textPrimary: warmBlack,
     textSecondary: charcoal,
     textMuted: mutedTextGray,
-    border: softWarmGray,
+    border: managerBorder,
     buttonText: pureWhite,
     iconAccent: managerGold,
   );

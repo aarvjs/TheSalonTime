@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/constants/asset_constants.dart';
+import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_button.dart';
+import '../../data/partner_state.dart';
+import '../../models/partner_models.dart';
 
 class PartnerLoginScreen extends StatefulWidget {
   const PartnerLoginScreen({super.key});
@@ -34,20 +37,29 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
         _isLoading = true;
       });
 
-      Future.delayed(const Duration(seconds: 1), () {
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (!mounted) return;
         setState(() {
           _isLoading = false;
         });
+
+        final partner = PartnerState.instance.partner;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppColors.copper,
             content: Text(
-              'Partner Portal Access granted. Dashboard connected.',
-              style: TextStyle(color: Colors.white),
+              'Welcome back, ${partner.fullName}! Connected to Partner Portal.',
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         );
+
+        // If verified, go to partner main dashboard. Otherwise prompt verification.
+        if (partner.verificationStatus == PartnerVerificationStatus.approved) {
+          Navigator.pushReplacementNamed(context, AppRoutes.partnerMain);
+        } else {
+          Navigator.pushReplacementNamed(context, AppRoutes.partnerVerificationStatus);
+        }
       });
     }
   }
@@ -100,19 +112,30 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      // Prominent The Salon Times Branding
+                      Text(
+                        'THE SALON TIMES',
+                        style: AppTextStyles.h1(color: AppColors.copper).copyWith(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       // Header Title & Subtitle
                       Text(
-                        'Partner Login',
-                        style: AppTextStyles.h1(color: AppColors.warmBlack).copyWith(
-                          fontSize: 28,
+                        'Partner Login (सैलून लॉगिन)',
+                        style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(
+                          fontSize: 22,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Welcome back, grow your business',
+                        'Apne salon business ko grow karein aur bookings manage karein',
+                        textAlign: TextAlign.center,
                         style: AppTextStyles.subtitle(color: AppColors.mutedTextGray).copyWith(
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -249,9 +272,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
                         backgroundColor: AppColors.copper,
                         textColor: AppColors.copper,
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Salon registration coming soon!')),
-                          );
+                          Navigator.pushNamed(context, AppRoutes.partnerRegister);
                         },
                       ),
                       const SizedBox(height: 24),
