@@ -107,8 +107,20 @@ class PartnerState extends ChangeNotifier {
       email: email,
       phone: phone,
       businessName: businessName,
-      verificationStatus: PartnerVerificationStatus.submitted,
+      verificationStatus: PartnerVerificationStatus.notSubmitted,
     );
+    _documents = [];
+    notifyListeners();
+  }
+
+  void setPartner(PartnerModel partner) {
+    _partner = partner;
+    _documents = List.from(partner.documents);
+    notifyListeners();
+  }
+
+  void setDocuments(List<PartnerDocumentModel> docs) {
+    _documents = List.from(docs);
     notifyListeners();
   }
 

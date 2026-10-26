@@ -4,11 +4,13 @@ import '../../../../core/constants/asset_constants.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/role_theme.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_button.dart';
+import '../services/partner_auth_service.dart';
+import '../../services/partner_firestore_service.dart';
 import '../../data/partner_state.dart';
-import '../../models/partner_models.dart';
 
 class PartnerRegisterScreen extends StatefulWidget {
   const PartnerRegisterScreen({super.key});
@@ -38,7 +40,8 @@ class _PartnerRegisterScreenState extends State<PartnerRegisterScreen> {
     super.dispose();
   }
 
-  void _onRegister() {
+  Future<void> _onRegister() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     if (!_agreeToTerms) {
@@ -53,37 +56,67 @@ class _PartnerRegisterScreenState extends State<PartnerRegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
+    try {
       final name = _nameController.text.trim();
       final phone = _phoneController.text.trim();
+      final password = _passwordController.text;
       final businessName = "$name's Salon";
-      final email = '${name.toLowerCase().replaceAll(' ', '')}@partner.salontimes.com';
 
-      // Save to local in-memory PartnerState
-      PartnerState.instance.registerPartner(
+      // 1. Create Firebase Auth user with phone-mapped credential
+      final credential = await PartnerAuthService.instance.registerPartner(
+        phone: phone,
+        password: password,
+      );
+
+      final user = credential.user;
+      if (user == null) {
+        throw 'Account creation failed. Please try again.';
+      }
+
+      // 2. Persist real Partner profile document in Firestore (partners/{uid})
+      final partner = await PartnerFirestoreService.instance.createPartnerProfile(
+        uid: user.uid,
         fullName: name,
-        email: email,
         phone: phone,
         businessName: businessName,
       );
-      PartnerState.instance.setVerificationStatusDemo(PartnerVerificationStatus.submitted);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.copper,
-          content: Text(
-            'Welcome $name! Partner account created successfully.',
-            style: const TextStyle(color: Colors.white),
+      // 3. Update Partner state & role theme
+      PartnerState.instance.setPartner(partner);
+
+      if (mounted) {
+        RoleTheme.controllerOf(context).setThemeMode(AppRoleThemeMode.partner);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.copper,
+            content: Text(
+              'Welcome $name! Partner account created successfully.',
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
-        ),
-      );
+        );
 
-      // Navigate to business document verification / status
-      Navigator.pushReplacementNamed(context, AppRoutes.partnerVerificationStatus);
-    });
+        // 4. Navigate to document verification screen to complete profile
+        Navigator.pushReplacementNamed(context, AppRoutes.partnerVerification);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text(
+              e.toString(),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override

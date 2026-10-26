@@ -8,6 +8,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/role_theme.dart';
 import '../../../shared/widgets/app_logo.dart';
 import '../../customer/profile/services/customer_profile_service.dart';
+import '../../partner/data/partner_state.dart';
+import '../../partner/models/partner_models.dart';
+import '../../partner/services/partner_firestore_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -55,7 +58,32 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // Customer is persistently signed in
+        // 1. Check if persistently signed-in user is a Partner
+        final isPartnerPattern = user.email != null && user.email!.startsWith('partner_');
+        PartnerModel? partnerProfile;
+
+        if (isPartnerPattern) {
+          partnerProfile = await PartnerFirestoreService.instance.getPartnerProfile(user.uid);
+        } else {
+          partnerProfile = await PartnerFirestoreService.instance.getPartnerProfile(user.uid);
+        }
+
+        if (partnerProfile != null) {
+          if (!mounted) return;
+          PartnerState.instance.setPartner(partnerProfile);
+          RoleTheme.controllerOf(context).setThemeMode(AppRoleThemeMode.partner);
+
+          if (partnerProfile.verificationStatus == PartnerVerificationStatus.approved) {
+            Navigator.pushReplacementNamed(context, AppRoutes.partnerMain);
+          } else if (partnerProfile.verificationStatus == PartnerVerificationStatus.notSubmitted) {
+            Navigator.pushReplacementNamed(context, AppRoutes.partnerVerification);
+          } else {
+            Navigator.pushReplacementNamed(context, AppRoutes.partnerVerificationStatus);
+          }
+          return;
+        }
+
+        // 2. Otherwise handle Customer session
         final profile = await CustomerProfileService.instance.getCustomerProfile(user.uid);
         if (!mounted) return;
 

@@ -1,10 +1,15 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../data/partner_state.dart';
 import '../../models/partner_models.dart';
+import '../../services/partner_firestore_service.dart';
 
 class DocumentVerificationScreen extends StatefulWidget {
   const DocumentVerificationScreen({super.key});
@@ -31,9 +36,9 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
     'Limited Liability Partnership (LLP)',
   ];
 
-  String _selectedDocType = 'Business Registration Proof';
+  String _selectedDocType = 'Business Registration / Trade License';
   final List<String> _docTypes = [
-    'Business Registration Proof',
+    'Business Registration / Trade License',
     'GST Registration Certificate',
     'Government Identity Proof (Aadhaar/PAN)',
     'Commercial Address Proof / Lease Agreement',
@@ -41,17 +46,28 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
 
   final List<PartnerDocumentModel> _uploadedDocs = [];
   bool _isLoading = false;
+  String _uploadStatusMessage = '';
 
   @override
   void initState() {
     super.initState();
     final partner = PartnerState.instance.partner;
-    _legalNameController = TextEditingController(text: partner.fullName);
+
+    // Automatically populated from existing registration data
+    _legalNameController = TextEditingController(
+      text: (partner.legalName != null && partner.legalName!.isNotEmpty)
+          ? partner.legalName
+          : partner.fullName,
+    );
     _businessNameController = TextEditingController(text: partner.businessName);
-    _regNumberController = TextEditingController(text: '09AAACG1234F1Z5');
-    _businessAddressController = TextEditingController(text: 'Plot 14/82, The Mall Avenue, Opp. Green Park, Kanpur');
+    _regNumberController = TextEditingController(text: partner.regNumber ?? '');
+    _businessAddressController = TextEditingController(text: partner.businessAddress ?? '');
     _emailController = TextEditingController(text: partner.email);
     _phoneController = TextEditingController(text: partner.phone);
+
+    if (partner.businessType != null && _businessTypes.contains(partner.businessType)) {
+      _selectedBusinessType = partner.businessType!;
+    }
 
     // Populate with existing documents from state if available
     _uploadedDocs.addAll(PartnerState.instance.documents);
@@ -68,7 +84,13 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
     super.dispose();
   }
 
-  void _mockUploadFile() {
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  void _showFileSourcePicker({String? replacingDocId}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -86,7 +108,7 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Attach Verification File',
+                    replacingDocId != null ? 'Replace Document' : 'Attach Verification File',
                     style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 18),
                   ),
                   IconButton(
@@ -95,9 +117,9 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
-                'Upload PDF or image under 5MB for $_selectedDocType',
+                'Upload PDF or image under 10MB for $_selectedDocType',
                 style: AppTextStyles.caption(color: AppColors.mutedTextGray),
               ),
               const SizedBox(height: 20),
@@ -112,16 +134,16 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                   child: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.copper),
                 ),
                 title: Text(
-                  'Select PDF Document',
+                  'Browse PDF / Device Documents',
                   style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 14),
                 ),
-                subtitle: const Text('Certificate or scanned government document'),
+                subtitle: const Text('Pick PDF, PNG, or JPG from device storage'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _addMockDocument('.pdf');
+                  _pickWithFilePicker(replacingDocId: replacingDocId);
                 },
               ),
-              const Divider(height: 20),
+              const Divider(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
@@ -130,16 +152,37 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                     color: AppColors.champagneGold.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.image_outlined, color: AppColors.champagneGold),
+                  child: const Icon(Icons.photo_library_rounded, color: AppColors.champagneGold),
                 ),
                 title: Text(
-                  'Take Photo / Gallery',
+                  'Photo Gallery',
                   style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 14),
                 ),
-                subtitle: const Text('Clear high-resolution photo of official document'),
+                subtitle: const Text('Select a high-resolution photo of official certificate'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _addMockDocument('.jpg');
+                  _pickWithImagePicker(ImageSource.gallery, replacingDocId: replacingDocId);
+                },
+              ),
+              const Divider(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: Colors.blue),
+                ),
+                title: Text(
+                  'Take Photo with Camera',
+                  style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 14),
+                ),
+                subtitle: const Text('Capture live physical document image'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickWithImagePicker(ImageSource.camera, replacingDocId: replacingDocId);
                 },
               ),
               const SizedBox(height: 12),
@@ -150,26 +193,113 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
     );
   }
 
-  void _addMockDocument(String ext) {
-    final cleanType = _selectedDocType.replaceAll(' ', '_');
+  Future<void> _pickWithFilePicker({String? replacingDocId}) async {
+    try {
+      final result = await FilePickerPlatform.instance.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result.isNotEmpty) {
+        final platformFile = result.first;
+        if (platformFile.path == null) {
+          _showError('Unable to read selected file path.');
+          return;
+        }
+
+        final file = File(platformFile.path!);
+        final bytes = await file.length();
+
+        if (bytes > 10 * 1024 * 1024) {
+          _showError('Selected file exceeds the 10 MB limit (${_formatFileSize(bytes)}). Please choose a smaller file.');
+          return;
+        }
+
+        _handleSelectedFile(
+          fileName: platformFile.name,
+          localPath: platformFile.path!,
+          fileSize: bytes,
+          replacingDocId: replacingDocId,
+        );
+      }
+    } catch (e) {
+      // In case native file picker had an issue on this device platform, fallback to image picker
+      _showError('Could not open document picker: $e. Try selecting via Photo Gallery.');
+    }
+  }
+
+  Future<void> _pickWithImagePicker(ImageSource source, {String? replacingDocId}) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 90,
+      );
+
+      if (picked != null) {
+        final file = File(picked.path);
+        final bytes = await file.length();
+
+        if (bytes > 10 * 1024 * 1024) {
+          _showError('Selected photo exceeds the 10 MB limit (${_formatFileSize(bytes)}).');
+          return;
+        }
+
+        _handleSelectedFile(
+          fileName: picked.name.isNotEmpty ? picked.name : 'Document_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          localPath: picked.path,
+          fileSize: bytes,
+          replacingDocId: replacingDocId,
+        );
+      }
+    } catch (e) {
+      _showError('Error picking photo: $e');
+    }
+  }
+
+  void _handleSelectedFile({
+    required String fileName,
+    required String localPath,
+    required int fileSize,
+    String? replacingDocId,
+  }) {
+    final docId = replacingDocId ?? 'doc_${DateTime.now().millisecondsSinceEpoch}';
     final newDoc = PartnerDocumentModel(
-      id: 'doc_${DateTime.now().millisecondsSinceEpoch}',
+      id: docId,
       documentType: _selectedDocType,
-      fileName: '${cleanType}_Uploaded$ext',
+      fileName: fileName,
+      localPath: localPath,
+      fileSize: fileSize,
       documentNumber: _regNumberController.text.trim().isNotEmpty ? _regNumberController.text.trim() : null,
       uploadDate: DateTime.now(),
       status: PartnerVerificationStatus.submitted,
     );
 
     setState(() {
-      _uploadedDocs.add(newDoc);
+      if (replacingDocId != null) {
+        final idx = _uploadedDocs.indexWhere((d) => d.id == replacingDocId);
+        if (idx != -1) {
+          _uploadedDocs[idx] = newDoc;
+        } else {
+          _uploadedDocs.add(newDoc);
+        }
+      } else {
+        // If doc of same type exists, replace it to avoid duplicate types
+        final existingIdx = _uploadedDocs.indexWhere((d) => d.documentType == _selectedDocType);
+        if (existingIdx != -1) {
+          _uploadedDocs[existingIdx] = newDoc;
+        } else {
+          _uploadedDocs.add(newDoc);
+        }
+      }
     });
-    PartnerState.instance.addDocument(newDoc);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.copper,
-        content: Text('Attached: ${newDoc.fileName} (Draft Uploaded)'),
+        content: Text('Attached: $fileName (${_formatFileSize(fileSize)})'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -181,58 +311,265 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
     PartnerState.instance.removeDocument(docId);
   }
 
+  void _previewDoc(PartnerDocumentModel doc) {
+    final isPdf = doc.fileName.toLowerCase().endsWith('.pdf');
+    final hasLocal = doc.localPath != null && File(doc.localPath!).existsSync();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(
+                isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
+                color: AppColors.copper,
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  doc.documentType,
+                  style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'File: ${doc.fileName}',
+                style: AppTextStyles.bodyBold(color: AppColors.charcoal).copyWith(fontSize: 13),
+              ),
+              if (doc.fileSize != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Size: ${_formatFileSize(doc.fileSize!)}',
+                  style: AppTextStyles.caption(color: AppColors.mutedTextGray),
+                ),
+              ],
+              const SizedBox(height: 12),
+              if (!isPdf && hasLocal)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.file(
+                    File(doc.localPath!),
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.warmGray,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isPdf ? Icons.picture_as_pdf_outlined : Icons.file_present_rounded,
+                          size: 40,
+                          color: AppColors.copper,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isPdf ? 'PDF Document Ready' : 'Document File Attached',
+                          style: AppTextStyles.caption(color: AppColors.charcoal),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showFileSourcePicker(replacingDocId: doc.id);
+              },
+              child: const Text('Replace File', style: TextStyle(color: AppColors.copper)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.copper,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Done'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _onSaveDraft() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         backgroundColor: AppColors.charcoal,
-        content: Text('Verification details saved locally as draft.'),
+        content: Text('Verification details saved locally. You can submit when ready.'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  void _onSubmit() {
-    if (!_formKey.currentState!.validate()) return;
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.red.shade700,
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
-    if (_uploadedDocs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.burntOrange,
-          content: Text('Please attach at least one business or identity document to submit.'),
-        ),
-      );
+  Future<void> _onSubmit() async {
+    // 1. Prevent duplicate submissions
+    if (_isLoading) return;
+
+    // 2. Validate form
+    if (!_formKey.currentState!.validate()) {
+      _showError('Please check required business details fields.');
       return;
     }
 
-    setState(() => _isLoading = true);
+    // 3. Validate at least one document
+    if (_uploadedDocs.isEmpty) {
+      _showError('Please attach at least one verification document (e.g. GST, Trade License, or Govt ID).');
+      return;
+    }
 
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showError('You must be signed in to submit verification documents.');
+      return;
+    }
 
-      PartnerState.instance.submitVerification();
-
-      // Navigate to status screen
-      Navigator.pushReplacementNamed(context, AppRoutes.partnerVerificationStatus);
+    setState(() {
+      _isLoading = true;
+      _uploadStatusMessage = 'Preparing documents for verification...';
     });
+
+    try {
+      final finalDocs = <PartnerDocumentModel>[];
+
+      // 4. Upload attached document files to Firebase Storage
+      for (int i = 0; i < _uploadedDocs.length; i++) {
+        final doc = _uploadedDocs[i];
+
+        if (doc.localPath != null && File(doc.localPath!).existsSync()) {
+          setState(() {
+            _uploadStatusMessage = 'Uploading ${doc.documentType} (${i + 1}/${_uploadedDocs.length})...';
+          });
+
+          final file = File(doc.localPath!);
+          final downloadUrl = await PartnerFirestoreService.instance.uploadPartnerDocument(
+            uid: user.uid,
+            file: file,
+            fileName: doc.fileName,
+          );
+
+          finalDocs.add(doc.copyWith(
+            fileUrl: downloadUrl,
+            status: PartnerVerificationStatus.submitted,
+          ));
+        } else {
+          // Already uploaded or existing
+          finalDocs.add(doc.copyWith(
+            status: PartnerVerificationStatus.submitted,
+          ));
+        }
+      }
+
+      setState(() {
+        _uploadStatusMessage = 'Saving verification details to database...';
+      });
+
+      // 5. Save verification details, registered name, and documents to Firestore
+      final updatedPartner = await PartnerFirestoreService.instance.submitVerificationDocuments(
+        uid: user.uid,
+        legalName: _legalNameController.text.trim(),
+        businessName: _businessNameController.text.trim(),
+        businessType: _selectedBusinessType,
+        regNumber: _regNumberController.text.trim(),
+        businessAddress: _businessAddressController.text.trim(),
+        documents: finalDocs,
+      );
+
+      // 6. Update local PartnerState
+      PartnerState.instance.setPartner(updatedPartner);
+      PartnerState.instance.setDocuments(finalDocs);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Colors.green,
+            content: Text('Documents and details submitted successfully for review!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // 7. Navigate to verification pending screen
+        Navigator.pushReplacementNamed(context, AppRoutes.partnerVerificationStatus);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Submission failed: $e. Your entered details are safe; please tap submit again to retry.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _uploadStatusMessage = '';
+        });
+      }
+    }
+  }
+
+  void _navigateToExploreHome() {
+    if (_isLoading) return;
+    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.partnerMain, (r) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.warmIvory,
-      appBar: AppBar(
+    final registeredName = PartnerState.instance.partner.fullName;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _navigateToExploreHome();
+      },
+      child: Scaffold(
         backgroundColor: AppColors.warmIvory,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Business Verification',
-          style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 18),
+        appBar: AppBar(
+          backgroundColor: AppColors.warmIvory,
+          elevation: 0,
+          centerTitle: true,
+          title: Text(
+            'Submit Verification Documents',
+            style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 18),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.warmBlack),
+            tooltip: 'Explore App',
+            onPressed: _navigateToExploreHome,
+          ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.warmBlack),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -242,7 +579,7 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Header Card
+                // Top Header Card with Registered Partner Name
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
@@ -277,13 +614,16 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Verify Your Business',
-                                  style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 18),
+                                  'Complete Your Partner Profile',
+                                  style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 17),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Submit required details to get your salon listed on The Salon Times.',
-                                  style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(height: 1.3),
+                                  'Registered Partner: $registeredName',
+                                  style: AppTextStyles.caption(color: AppColors.copper).copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ],
                             ),
@@ -303,7 +643,7 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Note: Documents must be reviewed by Admin before salon publishing is unlocked.',
+                                'Your registered name is automatically linked. Please submit business registration and identity documents to complete verification.',
                                 style: AppTextStyles.caption(color: AppColors.charcoal).copyWith(fontSize: 11),
                               ),
                             ),
@@ -315,32 +655,36 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                 ),
                 const SizedBox(height: 20),
 
-                // Section 1: Business Details
+                // Section 1: Business & Legal Details
                 Text(
-                  '1. Business Details',
+                  '1. Business & Legal Details',
                   style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 16),
                 ),
                 const SizedBox(height: 12),
 
-                // Legal Name
+                // Registered Owner / Legal Name (auto-populated)
                 _buildField(
                   controller: _legalNameController,
-                  label: 'Legal / Owner Name',
+                  label: 'Registered Owner / Legal Name',
                   hint: 'Full legal name as on ID card',
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                  readOnly: false,
+                  prefixIcon: Icons.badge_outlined,
+                  helperText: 'Auto-populated from registration. Must match ID card.',
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Owner name is required' : null,
                 ),
                 const SizedBox(height: 12),
 
                 // Business Name
                 _buildField(
                   controller: _businessNameController,
-                  label: 'Official Salon Name',
-                  hint: 'Trade or business name',
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                  label: 'Official Salon / Trade Name',
+                  hint: 'e.g. Royal Velvet Salon & Spa',
+                  prefixIcon: Icons.storefront_outlined,
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Salon trade name is required' : null,
                 ),
                 const SizedBox(height: 12),
 
-                // Business Type Dropdown
+                // Business Entity Type
                 Text(
                   'Business Entity Type',
                   style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
@@ -365,30 +709,34 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                           child: Text(type),
                         );
                       }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedBusinessType = val);
-                      },
+                      onChanged: _isLoading
+                          ? null
+                          : (val) {
+                              if (val != null) setState(() => _selectedBusinessType = val);
+                            },
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
 
-                // Registration / GST Number
+                // Registration / GST / PAN Number
                 _buildField(
                   controller: _regNumberController,
-                  label: 'GST / Business Registration / PAN',
-                  hint: 'e.g. 09AAACG1234F1Z5',
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                  label: 'GST / Business Reg. / PAN Number',
+                  hint: 'e.g. 09AAACG1234F1Z5 or PAN / Trade Lic #',
+                  prefixIcon: Icons.numbers_rounded,
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Registration or Tax number is required' : null,
                 ),
                 const SizedBox(height: 12),
 
-                // Business Address
+                // Registered Business Address
                 _buildField(
                   controller: _businessAddressController,
-                  label: 'Registered Business Address',
-                  hint: 'Complete address with city & postal code',
+                  label: 'Registered Salon Address',
+                  hint: 'Complete street address, city, state & postal code',
                   maxLines: 2,
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                  prefixIcon: Icons.location_on_outlined,
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Business address is required' : null,
                 ),
                 const SizedBox(height: 24),
 
@@ -399,14 +747,14 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Select the document type and attach a clear scanned copy.',
+                  'Select document type and upload a clear scanned copy (PDF, JPG, PNG up to 10MB).',
                   style: AppTextStyles.caption(color: AppColors.mutedTextGray),
                 ),
                 const SizedBox(height: 12),
 
-                // Document Type Selector
+                // Document Type Dropdown
                 Text(
-                  'Select Document to Attach',
+                  'Select Document Category to Attach',
                   style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
                 ),
                 const SizedBox(height: 6),
@@ -429,27 +777,28 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                           child: Text(doc, overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedDocType = val);
-                      },
+                      onChanged: _isLoading
+                          ? null
+                          : (val) {
+                              if (val != null) setState(() => _selectedDocType = val);
+                            },
                     ),
                   ),
                 ),
                 const SizedBox(height: 14),
 
-                // Upload Box
+                // Upload Box / File Picker Trigger
                 InkWell(
-                  onTap: _mockUploadFile,
+                  onTap: _isLoading ? null : () => _showFileSourcePicker(),
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: AppColors.copper.withValues(alpha: 0.6),
-                        style: BorderStyle.solid,
                         width: 1.5,
                       ),
                     ),
@@ -465,12 +814,12 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Tap to Upload File',
+                          'Tap to Select & Attach Document',
                           style: AppTextStyles.bodyBold(color: AppColors.copper).copyWith(fontSize: 14),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'PDF, JPG or PNG (Max 5MB) • Local Demo File Selection',
+                          'Select PDF, JPG or PNG (Up to 10MB)',
                           style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 11),
                         ),
                       ],
@@ -479,18 +828,29 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                 ),
                 const SizedBox(height: 16),
 
-                // List of Uploaded Documents
+                // List of Selected Documents
                 if (_uploadedDocs.isNotEmpty) ...[
-                  Text(
-                    'Attached Documents (${_uploadedDocs.length})',
-                    style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Attached Documents (${_uploadedDocs.length})',
+                        style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
+                      ),
+                      Text(
+                        'Tap file to preview / replace',
+                        style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 11),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   ...List.generate(_uploadedDocs.length, (index) {
                     final doc = _uploadedDocs[index];
+                    final isPdf = doc.fileName.toLowerCase().endsWith('.pdf');
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -498,40 +858,109 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            doc.fileName.endsWith('.pdf')
-                                ? Icons.picture_as_pdf_outlined
-                                : Icons.image_outlined,
-                            color: AppColors.copper,
-                            size: 24,
+                          InkWell(
+                            onTap: () => _previewDoc(doc),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isPdf
+                                    ? Colors.red.shade50
+                                    : AppColors.copper.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                isPdf ? Icons.picture_as_pdf_rounded : Icons.image_outlined,
+                                color: isPdf ? Colors.red.shade700 : AppColors.copper,
+                                size: 22,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  doc.fileName,
-                                  style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  doc.documentType,
-                                  style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 11),
-                                ),
-                              ],
+                            child: InkWell(
+                              onTap: () => _previewDoc(doc),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    doc.fileName,
+                                    style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          doc.documentType,
+                                          style: AppTextStyles.caption(color: AppColors.copper).copyWith(fontSize: 11),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (doc.fileSize != null)
+                                        Text(
+                                          ' • ${_formatFileSize(doc.fileSize!)}',
+                                          style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 11),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           IconButton(
+                            icon: const Icon(Icons.sync_rounded, color: AppColors.copper, size: 20),
+                            tooltip: 'Replace Document',
+                            onPressed: _isLoading ? null : () => _showFileSourcePicker(replacingDocId: doc.id),
+                          ),
+                          IconButton(
                             icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                            onPressed: () => _removeDoc(doc.id),
+                            tooltip: 'Remove',
+                            onPressed: _isLoading ? null : () => _removeDoc(doc.id),
                           ),
                         ],
                       ),
                     );
                   }),
                   const SizedBox(height: 16),
+                ],
+
+                // Upload Progress State Indicator
+                if (_isLoading) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.copper.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.copper.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.copper),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            _uploadStatusMessage.isNotEmpty
+                                ? _uploadStatusMessage
+                                : 'Uploading documents securely to server...',
+                            style: AppTextStyles.caption(color: AppColors.charcoal).copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
 
                 // Action Buttons: Save Draft & Submit
@@ -544,7 +973,7 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                         isOutlined: true,
                         backgroundColor: AppColors.copper,
                         textColor: AppColors.copper,
-                        onPressed: _onSaveDraft,
+                        onPressed: _isLoading ? null : _onSaveDraft,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -554,7 +983,8 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
                         text: 'Submit for Verification',
                         isLoading: _isLoading,
                         backgroundColor: AppColors.copper,
-                        onPressed: _onSubmit,
+                        icon: Icons.send_rounded,
+                        onPressed: _isLoading ? null : _onSubmit,
                       ),
                     ),
                   ],
@@ -565,14 +995,18 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildField({
     required TextEditingController controller,
     required String label,
     required String hint,
     int maxLines = 1,
+    bool readOnly = false,
+    IconData? prefixIcon,
+    String? helperText,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -586,13 +1020,17 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
         TextFormField(
           controller: controller,
           maxLines: maxLines,
+          readOnly: readOnly,
           validator: validator,
           style: AppTextStyles.body(color: AppColors.warmBlack).copyWith(fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppTextStyles.subtitle(color: AppColors.mutedTextGray).copyWith(fontSize: 13),
+            helperText: helperText,
+            helperStyle: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 10),
+            prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppColors.copper, size: 20) : null,
             filled: true,
-            fillColor: Colors.white,
+            fillColor: readOnly ? const Color(0xFFF7F5F0) : Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),

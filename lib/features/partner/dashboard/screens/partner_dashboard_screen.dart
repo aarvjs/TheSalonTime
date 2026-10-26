@@ -58,6 +58,48 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
     return 'Good Evening (शुभ संध्या)';
   }
 
+  void _showRestrictedActionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.shield_outlined, color: AppColors.copper, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Verification Pending',
+              style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 16),
+            ),
+          ],
+        ),
+        content: Text(
+          'Your partner account is in Explorer Mode. Creating salons and publishing services to customers requires an approved verification by The Salon Times Admin.',
+          style: AppTextStyles.body(color: AppColors.charcoal).copyWith(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Continue Exploring', style: TextStyle(color: AppColors.mutedTextGray)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.copper,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushNamed(context, AppRoutes.partnerVerificationStatus);
+            },
+            child: const Text('View Status'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -81,41 +123,53 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                   // Top Brand Header Bar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Drawer Burger & The Salon Times Brand
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.menu_rounded, color: AppColors.warmBlack, size: 26),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: widget.onOpenDrawer ?? () => Scaffold.of(context).openDrawer(),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'THE SALON TIMES',
-                                style: AppTextStyles.h1(color: AppColors.copper).copyWith(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.5,
-                                ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.menu_rounded, color: AppColors.warmBlack, size: 26),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: widget.onOpenDrawer ?? () => Scaffold.of(context).openDrawer(),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'THE SALON TIMES',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.h1(color: AppColors.copper).copyWith(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_getGreeting()}, ${partner.fullName.isNotEmpty ? partner.fullName.split(' ').first : 'Partner'}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.caption(color: AppColors.charcoal).copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${_getGreeting()}, ${partner.fullName.split(' ').first}',
-                                style: AppTextStyles.caption(color: AppColors.charcoal).copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       // Notification & Profile
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Stack(
                             children: [
@@ -183,11 +237,11 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.warning_amber_rounded, color: Color(0xFFB78103), size: 20),
+                              const Icon(Icons.shield_outlined, color: Color(0xFFB78103), size: 20),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Verification Pending (पहचान सत्यापन जरूरी है)',
+                                  'Explorer Mode — Verification Pending',
                                   style: AppTextStyles.bodyBold(color: const Color(0xFF7A5600)).copyWith(fontSize: 13),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -196,7 +250,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Verify your partner account to publish salon & accept online bookings.',
+                            'You are currently exploring in restricted mode. Publishing salon & live bookings unlock once Admin approves your documents.',
                             style: AppTextStyles.caption(color: AppColors.charcoal).copyWith(fontSize: 11),
                           ),
                           const SizedBox(height: 10),
@@ -204,38 +258,34 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                             children: [
                               Expanded(
                                 child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.verified_user_rounded, size: 14),
-                                  label: const Text('Verify Account Now (Demo)', style: TextStyle(fontSize: 11)),
+                                  icon: const Icon(Icons.verified_outlined, size: 14),
+                                  label: const Text('Check Verification Status', style: TextStyle(fontSize: 11)),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green.shade700,
+                                    backgroundColor: AppColors.copper,
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
                                   onPressed: () {
-                                    state.setVerificationStatusDemo(PartnerVerificationStatus.approved);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        backgroundColor: Colors.green,
-                                        content: Text('Account verified! You can now create your salon.'),
-                                      ),
-                                    );
+                                    Navigator.pushNamed(context, AppRoutes.partnerVerificationStatus);
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.copper,
-                                  side: const BorderSide(color: AppColors.copper),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              if (partner.verificationStatus == PartnerVerificationStatus.notSubmitted) ...[
+                                const SizedBox(width: 8),
+                                OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.copper,
+                                    side: const BorderSide(color: AppColors.copper),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(context, AppRoutes.partnerVerification);
+                                  },
+                                  child: const Text('Submit Docs', style: TextStyle(fontSize: 11)),
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(context, AppRoutes.partnerVerificationStatus);
-                                },
-                                child: const Text('Status', style: TextStyle(fontSize: 11)),
-                              ),
+                              ],
                             ],
                           ),
                         ],
@@ -426,7 +476,11 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                                   minimumSize: const Size(0, 32),
                                 ),
                                 onPressed: () {
-                                  Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
+                                  if (!isVerified) {
+                                    _showRestrictedActionDialog(context);
+                                  } else {
+                                    Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
+                                  }
                                 },
                                 child: const Text(
                                   '+ Create Salon Now',
@@ -580,7 +634,13 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                         label: 'Create Salon',
                         hindi: '+ सैलून जोड़ें',
                         color: AppColors.copper,
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.partnerCreateSalon),
+                        onTap: () {
+                          if (!isVerified) {
+                            _showRestrictedActionDialog(context);
+                          } else {
+                            Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
+                          }
+                        },
                       ),
                       _buildQuickCard(
                         icon: Icons.spa_rounded,

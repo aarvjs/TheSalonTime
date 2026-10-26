@@ -1,9 +1,14 @@
+import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/asset_constants.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../auth/services/partner_auth_service.dart';
+import '../../services/partner_firestore_service.dart';
 import '../../data/partner_state.dart';
 import '../../models/partner_models.dart';
 
@@ -43,6 +48,143 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
       'asset': AssetConstants.maleBanner1,
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPartnerProfile();
+  }
+
+  /// Load fresh profile data from Firestore on screen initialization
+  Future<void> _loadPartnerProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final fresh = await PartnerFirestoreService.instance.getPartnerProfile(user.uid);
+      if (fresh != null && mounted) {
+        PartnerState.instance.setPartner(fresh);
+      }
+    }
+  }
+
+  /// Pick image from Camera or Gallery and upload to Firebase Storage
+  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+      if (picked == null) return;
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              SizedBox(width: 12),
+              Text('Uploading profile photo...'),
+            ],
+          ),
+          duration: Duration(seconds: 4),
+        ),
+      );
+
+      final photoUrl = await PartnerFirestoreService.instance.uploadPartnerPhoto(
+        user.uid,
+        File(picked.path),
+      );
+
+      if (photoUrl != null) {
+        await PartnerFirestoreService.instance.updatePartnerProfile(
+          user.uid,
+          profilePhoto: photoUrl,
+        );
+        final current = PartnerState.instance.partner;
+        PartnerState.instance.updatePartner(current.copyWith(profilePhoto: photoUrl));
+        setState(() => _selectedAvatarAsset = photoUrl);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: AppColors.copper,
+              content: Text('Profile photo updated successfully!'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('Failed to upload photo: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Apply curated preset avatar and save to Firestore
+  Future<void> _applyPresetAvatar(String assetPath, String message) async {
+    final user = FirebaseAuth.instance.currentUser;
+    setState(() => _selectedAvatarAsset = assetPath);
+    if (user != null) {
+      await PartnerFirestoreService.instance.updatePartnerProfile(
+        user.uid,
+        profilePhoto: assetPath,
+      );
+    }
+    final current = PartnerState.instance.partner;
+    PartnerState.instance.updatePartner(current.copyWith(profilePhoto: assetPath));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.copper,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text(message)),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Reset avatar to default initial and update Firestore
+  Future<void> _resetAvatar() async {
+    final user = FirebaseAuth.instance.currentUser;
+    setState(() => _selectedAvatarAsset = null);
+    if (user != null) {
+      await PartnerFirestoreService.instance.updatePartnerProfile(
+        user.uid,
+        profilePhoto: '',
+      );
+    }
+    final current = PartnerState.instance.partner;
+    PartnerState.instance.updatePartner(current.copyWith(profilePhoto: ''));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.charcoal,
+          content: Text('Avatar reset to default initial.'),
+        ),
+      );
+    }
+  }
 
   void _showPhotoPickerSheet() {
     showModalBottomSheet(
@@ -90,7 +232,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                       subtitle: 'Camera',
                       onTap: () {
                         Navigator.pop(ctx);
-                        _applyPhoto(AssetConstants.rolePartner, 'Photo captured via Camera');
+                        _pickAndUploadPhoto(ImageSource.camera);
                       },
                     ),
                   ),
@@ -102,7 +244,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                       subtitle: 'From Gallery',
                       onTap: () {
                         Navigator.pop(ctx);
-                        _applyPhoto(AssetConstants.partnerLoginIllu, 'Photo selected from Gallery');
+                        _pickAndUploadPhoto(ImageSource.gallery);
                       },
                     ),
                   ),
@@ -129,7 +271,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                     return GestureDetector(
                       onTap: () {
                         Navigator.pop(ctx);
-                        _applyPhoto(item['asset']!, 'Selected ${item['name']} avatar');
+                        _applyPresetAvatar(item['asset']!, 'Selected ${item['name']} avatar');
                       },
                       child: Column(
                         children: [
@@ -173,35 +315,11 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                   title: const Text('Reset to Initial Letter Avatar', style: TextStyle(color: Colors.red, fontSize: 13)),
                   onTap: () {
                     Navigator.pop(ctx);
-                    setState(() => _selectedAvatarAsset = null);
-                    PartnerState.instance.updatePartnerPhoto('');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: AppColors.charcoal,
-                        content: Text('Avatar reset to default initial.'),
-                      ),
-                    );
+                    _resetAvatar();
                   },
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  void _applyPhoto(String assetPath, String message) {
-    setState(() => _selectedAvatarAsset = assetPath);
-    PartnerState.instance.updatePartnerPhoto(assetPath);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.copper,
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
         ),
       ),
     );
@@ -273,14 +391,15 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text('Contact Phone', style: AppTextStyles.caption(color: AppColors.mutedTextGray)),
+              Text('Contact Phone (Verified - Read Only)', style: AppTextStyles.caption(color: AppColors.mutedTextGray)),
               const SizedBox(height: 4),
               TextField(
                 controller: phoneCtrl,
-                keyboardType: TextInputType.phone,
+                enabled: false,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppColors.warmGray,
+                  fillColor: AppColors.warmGray.withValues(alpha: 0.7),
+                  suffixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.mutedTextGray),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 ),
@@ -311,20 +430,47 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () {
+            onPressed: () async {
+              final newName = nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : partner.fullName;
+              final newBusiness = businessCtrl.text.trim().isNotEmpty ? businessCtrl.text.trim() : partner.businessName;
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(ctx);
+
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                try {
+                  await PartnerFirestoreService.instance.updatePartnerProfile(
+                    user.uid,
+                    fullName: newName,
+                    businessName: newBusiness,
+                  );
+                } catch (e) {
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.red.shade700,
+                        content: Text('Failed to update profile: $e'),
+                      ),
+                    );
+                  }
+                  return;
+                }
+              }
+
               final updated = partner.copyWith(
-                fullName: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : partner.fullName,
-                phone: phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : partner.phone,
-                businessName: businessCtrl.text.trim().isNotEmpty ? businessCtrl.text.trim() : partner.businessName,
+                fullName: newName,
+                businessName: newBusiness,
               );
               PartnerState.instance.updatePartner(updated);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  backgroundColor: AppColors.copper,
-                  content: Text('Profile details updated successfully!'),
-                ),
-              );
+
+              if (mounted) {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    backgroundColor: AppColors.copper,
+                    content: Text('Profile details updated successfully!'),
+                  ),
+                );
+              }
             },
             child: const Text('Save Changes'),
           ),
@@ -411,9 +557,12 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () {
+            onPressed: () async {
+              final navigator = Navigator.of(context);
               Navigator.pop(ctx);
-              Navigator.pushNamedAndRemoveUntil(context, AppRoutes.chooseRole, (r) => false);
+              await PartnerAuthService.instance.signOut();
+              if (!mounted) return;
+              navigator.pushNamedAndRemoveUntil(AppRoutes.chooseRole, (r) => false);
             },
             child: const Text('Sign Out'),
           ),
@@ -555,12 +704,24 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                                       backgroundColor: AppColors.warmGray,
                                       child: photoToDisplay != null && photoToDisplay.isNotEmpty
                                           ? ClipOval(
-                                              child: Image.asset(
-                                                photoToDisplay,
-                                                width: 80,
-                                                height: 80,
-                                                fit: BoxFit.cover,
-                                              ),
+                                              child: photoToDisplay.startsWith('http')
+                                                  ? Image.network(
+                                                      photoToDisplay,
+                                                      width: 80,
+                                                      height: 80,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error, stackTrace) => const Icon(
+                                                        Icons.storefront_rounded,
+                                                        color: AppColors.copper,
+                                                        size: 40,
+                                                      ),
+                                                    )
+                                                  : Image.asset(
+                                                      photoToDisplay,
+                                                      width: 80,
+                                                      height: 80,
+                                                      fit: BoxFit.cover,
+                                                    ),
                                             )
                                           : Text(
                                               partner.fullName.isNotEmpty ? partner.fullName[0].toUpperCase() : 'P',
@@ -655,7 +816,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    'ID: TS-PTN-8291',
+                                    'ID: ${partner.id.length > 14 ? partner.id.substring(0, 14).toUpperCase() : partner.id.toUpperCase()}',
                                     style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,

@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum PartnerVerificationStatus {
+  notSubmitted,
   submitted,
   underReview,
   approved,
@@ -26,6 +29,15 @@ class PartnerModel {
   final String businessName;
   final PartnerVerificationStatus verificationStatus;
   final String? profilePhoto;
+  final String? legalName;
+  final String? businessType;
+  final String? regNumber;
+  final String? businessAddress;
+  final String? rejectionReason;
+  final DateTime? submittedAt;
+  final List<PartnerDocumentModel> documents;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   const PartnerModel({
     required this.id,
@@ -33,8 +45,17 @@ class PartnerModel {
     required this.email,
     required this.phone,
     required this.businessName,
-    this.verificationStatus = PartnerVerificationStatus.submitted,
+    this.verificationStatus = PartnerVerificationStatus.notSubmitted,
     this.profilePhoto,
+    this.legalName,
+    this.businessType,
+    this.regNumber,
+    this.businessAddress,
+    this.rejectionReason,
+    this.submittedAt,
+    this.documents = const [],
+    this.createdAt,
+    this.updatedAt,
   });
 
   PartnerModel copyWith({
@@ -45,6 +66,15 @@ class PartnerModel {
     String? businessName,
     PartnerVerificationStatus? verificationStatus,
     String? profilePhoto,
+    String? legalName,
+    String? businessType,
+    String? regNumber,
+    String? businessAddress,
+    String? rejectionReason,
+    DateTime? submittedAt,
+    List<PartnerDocumentModel>? documents,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return PartnerModel(
       id: id ?? this.id,
@@ -54,6 +84,117 @@ class PartnerModel {
       businessName: businessName ?? this.businessName,
       verificationStatus: verificationStatus ?? this.verificationStatus,
       profilePhoto: profilePhoto ?? this.profilePhoto,
+      legalName: legalName ?? this.legalName,
+      businessType: businessType ?? this.businessType,
+      regNumber: regNumber ?? this.regNumber,
+      businessAddress: businessAddress ?? this.businessAddress,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      submittedAt: submittedAt ?? this.submittedAt,
+      documents: documents ?? this.documents,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toMap({bool isNew = false}) {
+    final map = <String, dynamic>{
+      'uid': id,
+      'fullName': fullName.trim(),
+      'phoneNumber': phone.trim(),
+      'email': email.trim(),
+      'businessName': businessName.trim(),
+      'role': 'partner',
+      'verificationStatus': verificationStatus == PartnerVerificationStatus.notSubmitted
+          ? 'not_submitted'
+          : verificationStatus.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (profilePhoto != null && profilePhoto!.trim().isNotEmpty) {
+      map['profilePhoto'] = profilePhoto!.trim();
+    }
+    if (legalName != null && legalName!.trim().isNotEmpty) {
+      map['legalName'] = legalName!.trim();
+    }
+    if (businessType != null && businessType!.trim().isNotEmpty) {
+      map['businessType'] = businessType!.trim();
+    }
+    if (regNumber != null && regNumber!.trim().isNotEmpty) {
+      map['regNumber'] = regNumber!.trim();
+    }
+    if (businessAddress != null && businessAddress!.trim().isNotEmpty) {
+      map['businessAddress'] = businessAddress!.trim();
+    }
+    if (rejectionReason != null && rejectionReason!.trim().isNotEmpty) {
+      map['rejectionReason'] = rejectionReason!.trim();
+    }
+    if (submittedAt != null) {
+      map['submittedAt'] = Timestamp.fromDate(submittedAt!);
+    }
+    if (documents.isNotEmpty) {
+      map['documents'] = documents.map((d) => d.toMap()).toList();
+    }
+    if (isNew) {
+      map['createdAt'] = FieldValue.serverTimestamp();
+    }
+    return map;
+  }
+
+  factory PartnerModel.fromMap(Map<String, dynamic> map, String docId) {
+    DateTime? parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val);
+      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+      return null;
+    }
+
+    List<PartnerDocumentModel> parseDocs(dynamic val) {
+      if (val is List) {
+        final list = <PartnerDocumentModel>[];
+        for (final item in val) {
+          if (item is Map<String, dynamic>) {
+            list.add(PartnerDocumentModel.fromMap(item));
+          } else if (item is Map) {
+            list.add(PartnerDocumentModel.fromMap(Map<String, dynamic>.from(item)));
+          }
+        }
+        return list;
+      }
+      return const [];
+    }
+
+    final docs = parseDocs(map['documents']);
+
+    PartnerVerificationStatus parseStatus(dynamic val) {
+      if (val == null) return PartnerVerificationStatus.notSubmitted;
+      final str = val.toString().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+      if (str == 'approved' || str == 'verified') return PartnerVerificationStatus.approved;
+      if (str == 'underreview' || str == 'under_review') return PartnerVerificationStatus.underReview;
+      if (str == 'rejected') return PartnerVerificationStatus.rejected;
+      if (str == 'needsinfo' || str == 'needs_info') return PartnerVerificationStatus.needsInfo;
+      if (str == 'submitted' || str == 'pending') {
+        return docs.isNotEmpty ? PartnerVerificationStatus.submitted : PartnerVerificationStatus.notSubmitted;
+      }
+      if (str == 'notsubmitted' || str == 'not_submitted') return PartnerVerificationStatus.notSubmitted;
+      return PartnerVerificationStatus.notSubmitted;
+    }
+
+    return PartnerModel(
+      id: docId.isNotEmpty ? docId : (map['uid'] as String? ?? ''),
+      fullName: map['fullName'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      phone: map['phoneNumber'] as String? ?? (map['phone'] as String? ?? ''),
+      businessName: map['businessName'] as String? ?? '',
+      verificationStatus: parseStatus(map['verificationStatus']),
+      profilePhoto: map['profilePhoto'] as String?,
+      legalName: map['legalName'] as String?,
+      businessType: map['businessType'] as String?,
+      regNumber: map['regNumber'] as String?,
+      businessAddress: map['businessAddress'] as String?,
+      rejectionReason: map['rejectionReason'] as String?,
+      submittedAt: parseDate(map['submittedAt']),
+      documents: docs,
+      createdAt: parseDate(map['createdAt']),
+      updatedAt: parseDate(map['updatedAt']),
     );
   }
 }
@@ -63,6 +204,9 @@ class PartnerDocumentModel {
   final String documentType;
   final String fileName;
   final String? documentNumber;
+  final String? fileUrl;
+  final String? localPath;
+  final int? fileSize;
   final DateTime uploadDate;
   final PartnerVerificationStatus status;
 
@@ -71,6 +215,9 @@ class PartnerDocumentModel {
     required this.documentType,
     required this.fileName,
     this.documentNumber,
+    this.fileUrl,
+    this.localPath,
+    this.fileSize,
     required this.uploadDate,
     this.status = PartnerVerificationStatus.submitted,
   });
@@ -80,6 +227,9 @@ class PartnerDocumentModel {
     String? documentType,
     String? fileName,
     String? documentNumber,
+    String? fileUrl,
+    String? localPath,
+    int? fileSize,
     DateTime? uploadDate,
     PartnerVerificationStatus? status,
   }) {
@@ -88,8 +238,55 @@ class PartnerDocumentModel {
       documentType: documentType ?? this.documentType,
       fileName: fileName ?? this.fileName,
       documentNumber: documentNumber ?? this.documentNumber,
+      fileUrl: fileUrl ?? this.fileUrl,
+      localPath: localPath ?? this.localPath,
+      fileSize: fileSize ?? this.fileSize,
       uploadDate: uploadDate ?? this.uploadDate,
       status: status ?? this.status,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'documentType': documentType,
+      'fileName': fileName,
+      'documentNumber': documentNumber,
+      'fileUrl': fileUrl,
+      'fileSize': fileSize,
+      'uploadDate': Timestamp.fromDate(uploadDate),
+      'status': status.name,
+    };
+  }
+
+  factory PartnerDocumentModel.fromMap(Map<String, dynamic> map) {
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+      return DateTime.now();
+    }
+
+    PartnerVerificationStatus parseStatus(dynamic val) {
+      if (val == null) return PartnerVerificationStatus.submitted;
+      final str = val.toString().toLowerCase();
+      if (str == 'approved' || str == 'verified') return PartnerVerificationStatus.approved;
+      if (str == 'underreview' || str == 'under_review') return PartnerVerificationStatus.underReview;
+      if (str == 'rejected') return PartnerVerificationStatus.rejected;
+      if (str == 'needsinfo' || str == 'needs_info') return PartnerVerificationStatus.needsInfo;
+      return PartnerVerificationStatus.submitted;
+    }
+
+    return PartnerDocumentModel(
+      id: map['id'] as String? ?? 'doc_${DateTime.now().millisecondsSinceEpoch}',
+      documentType: map['documentType'] as String? ?? '',
+      fileName: map['fileName'] as String? ?? '',
+      documentNumber: map['documentNumber'] as String?,
+      fileUrl: map['fileUrl'] as String?,
+      localPath: map['localPath'] as String?,
+      fileSize: map['fileSize'] as int?,
+      uploadDate: parseDate(map['uploadDate']),
+      status: parseStatus(map['status']),
     );
   }
 }

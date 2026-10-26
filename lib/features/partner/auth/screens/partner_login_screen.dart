@@ -4,9 +4,13 @@ import '../../../../core/constants/asset_constants.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/role_theme.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_button.dart';
+import '../../../customer/profile/services/customer_profile_service.dart';
+import '../services/partner_auth_service.dart';
+import '../../services/partner_firestore_service.dart';
 import '../../data/partner_state.dart';
 import '../../models/partner_models.dart';
 
@@ -19,31 +23,66 @@ class PartnerLoginScreen extends StatefulWidget {
 
 class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _onLogin() {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() {
-        _isLoading = true;
-      });
+  Future<void> _onLogin() async {
+    if (_isLoading) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-        });
+    setState(() {
+      _isLoading = true;
+    });
 
-        final partner = PartnerState.instance.partner;
+    try {
+      final phone = _phoneController.text.trim();
+      final password = _passwordController.text;
+
+      // 1. Authenticate with Firebase using phone-to-auth credential mapping
+      final credential = await PartnerAuthService.instance.loginPartner(
+        phone: phone,
+        password: password,
+      );
+
+      final user = credential.user;
+      if (user == null) {
+        throw 'Authentication failed. Please verify credentials.';
+      }
+
+      // 2. Fetch Partner document from Firestore
+      var partner = await PartnerFirestoreService.instance.getPartnerProfile(user.uid);
+
+      if (partner == null) {
+        // Prevent customer accounts from accessing partner portal
+        final customer = await CustomerProfileService.instance.getCustomerProfile(user.uid);
+        if (customer != null) {
+          await PartnerAuthService.instance.signOut();
+          throw 'This account is registered as a Customer, not a Salon Partner. Please use Customer login.';
+        }
+
+        // Safe auto-recovery for interrupted registration: create Partner profile
+        partner = await PartnerFirestoreService.instance.createPartnerProfile(
+          uid: user.uid,
+          fullName: 'Salon Partner',
+          phone: phone,
+        );
+      }
+
+      // 3. Set local partner state
+      PartnerState.instance.setPartner(partner);
+
+      if (mounted) {
+        RoleTheme.controllerOf(context).setThemeMode(AppRoleThemeMode.partner);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.copper,
@@ -57,10 +96,30 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
         // If verified, go to partner main dashboard. Otherwise prompt verification.
         if (partner.verificationStatus == PartnerVerificationStatus.approved) {
           Navigator.pushReplacementNamed(context, AppRoutes.partnerMain);
+        } else if (partner.verificationStatus == PartnerVerificationStatus.notSubmitted) {
+          Navigator.pushReplacementNamed(context, AppRoutes.partnerVerification);
         } else {
           Navigator.pushReplacementNamed(context, AppRoutes.partnerVerificationStatus);
         }
-      });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text(
+              e.toString(),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -162,22 +221,22 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // Mobile / Email Field
+                      // Mobile Number Field
                       TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (val) => Validators.validateRequired(val, 'Mobile / Email'),
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        validator: Validators.validatePhone,
                         style: AppTextStyles.body(color: AppColors.warmBlack).copyWith(
                           fontSize: 14,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Mobile / Email',
+                          hintText: '10-digit mobile number (मोबाइल नंबर)',
                           hintStyle: AppTextStyles.subtitle(color: AppColors.mutedTextGray),
                           filled: true,
                           fillColor: Colors.white,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           prefixIcon: const Icon(
-                            Icons.email_outlined,
+                            Icons.phone_outlined,
                             color: AppColors.copper,
                             size: 20,
                           ),
@@ -188,6 +247,14 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(color: AppColors.copper, width: 1.8),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.red.shade400, width: 1.2),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.red.shade600, width: 1.8),
                           ),
                         ),
                       ),

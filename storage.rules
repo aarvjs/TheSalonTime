@@ -18,6 +18,14 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Partner profile photos
+    match /partner_photos/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // Partner documents and salon photos
     match /partner_docs/{fileName} {
       allow read, write: if isAuthenticated();

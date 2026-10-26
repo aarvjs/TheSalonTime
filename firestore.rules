@@ -138,9 +138,157 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Partner, manager, and salon collections
+    function validPartnerProfile(data) {
+      return (
+          !('fullName' in data)
+          || (data.fullName is string && data.fullName.size() <= 100)
+        )
+        && (
+          !('phoneNumber' in data)
+          || (data.phoneNumber is string && data.phoneNumber.size() <= 25)
+        )
+        && (
+          !('email' in data)
+          || (data.email is string && data.email.size() <= 100)
+        )
+        && (
+          !('businessName' in data)
+          || (data.businessName is string && data.businessName.size() <= 150)
+        )
+        && (
+          !('role' in data)
+          || data.role == 'partner'
+        )
+        && (
+          !('profilePhoto' in data)
+          || data.profilePhoto == null
+          || data.profilePhoto is string
+        )
+        && (
+          !('verificationStatus' in data)
+          || data.verificationStatus in [
+            'not_submitted',
+            'submitted',
+            'pending',
+            'underReview',
+            'under_review',
+            'approved',
+            'rejected',
+            'needsInfo',
+            'needs_info'
+          ]
+        )
+        && (
+          !('legalName' in data)
+          || (data.legalName is string && data.legalName.size() <= 150)
+        )
+        && (
+          !('businessType' in data)
+          || (data.businessType is string && data.businessType.size() <= 100)
+        )
+        && (
+          !('regNumber' in data)
+          || (data.regNumber is string && data.regNumber.size() <= 100)
+        )
+        && (
+          !('businessAddress' in data)
+          || (data.businessAddress is string && data.businessAddress.size() <= 500)
+        )
+        && (
+          !('documents' in data)
+          || data.documents is list
+        );
+    }
+
+    // PARTNER PROFILES
     match /partners/{partnerId} {
-      allow read, write: if signedIn() && request.auth.uid == partnerId;
+
+      // Partners can only read their own private profile
+      allow get: if isOwner(partnerId);
+
+      // Prevent bulk export / listing of all partner documents
+      allow list: if false;
+
+      // Create new partner profile upon registration
+      allow create: if isOwner(partnerId)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'fullName',
+          'phoneNumber',
+          'email',
+          'businessName',
+          'role',
+          'verificationStatus',
+          'profilePhoto',
+          'legalName',
+          'businessType',
+          'regNumber',
+          'businessAddress',
+          'rejectionReason',
+          'submittedAt',
+          'documents',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == partnerId
+        && request.resource.data.role == 'partner'
+        // Newly registered partners start strictly with not_submitted or submitted/pending
+        && request.resource.data.verificationStatus in ['not_submitted', 'submitted', 'pending']
+        && validPartnerProfile(request.resource.data);
+
+      // Update permitted fields only
+      allow update: if isOwner(partnerId)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'fullName',
+          'phoneNumber',
+          'email',
+          'businessName',
+          'role',
+          'verificationStatus',
+          'profilePhoto',
+          'legalName',
+          'businessType',
+          'regNumber',
+          'businessAddress',
+          'rejectionReason',
+          'submittedAt',
+          'documents',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == partnerId
+        // Immutable security fields cannot be changed by the client:
+        && (!('phoneNumber' in resource.data) || request.resource.data.phoneNumber == resource.data.phoneNumber)
+        && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt)
+        && (!('role' in resource.data) || request.resource.data.role == resource.data.role)
+        // Disallow modifying protected security keys
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'uid',
+          'phoneNumber',
+          'createdAt',
+          'role'
+        ])
+        // Ordinary users can NEVER approve their own account:
+        && request.resource.data.verificationStatus != 'approved'
+        // Only permitted fields may be updated by client
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'fullName',
+          'businessName',
+          'profilePhoto',
+          'legalName',
+          'businessType',
+          'regNumber',
+          'businessAddress',
+          'documents',
+          'verificationStatus',
+          'submittedAt',
+          'updatedAt'
+        ])
+        && validPartnerProfile(request.resource.data);
+
+      // Partner documents cannot be deleted from the client
+      allow delete: if false;
     }
 
     match /salons/{salonId} {

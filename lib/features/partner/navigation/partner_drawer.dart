@@ -259,7 +259,18 @@ class PartnerDrawer extends StatelessWidget {
                         badgeTextColor: AppColors.copper,
                         onTap: () {
                           Navigator.pop(context);
-                          Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
+                          if (!isVerified) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: AppColors.charcoal,
+                                content: Text('Verification pending: salon creation unlocks after approval.'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            Navigator.pushNamed(context, AppRoutes.partnerVerificationStatus);
+                          } else {
+                            Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
+                          }
                         },
                       ),
                       _buildDrawerItem(

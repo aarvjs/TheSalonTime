@@ -417,6 +417,50 @@ class _CreateSalonScreenState extends State<CreateSalonScreen> {
   }
 
   void _onCreateSalon() {
+    final isVerified = PartnerState.instance.partner.verificationStatus == PartnerVerificationStatus.approved;
+    if (!isVerified) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.shield_outlined, color: AppColors.copper, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Verification Required',
+                style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 16),
+              ),
+            ],
+          ),
+          content: Text(
+            'Your account verification is currently pending review. Salons cannot be created or published until verification documents are approved by Admin.',
+            style: AppTextStyles.body(color: AppColors.charcoal).copyWith(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Back', style: TextStyle(color: AppColors.mutedTextGray)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.copper,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pushReplacementNamed(context, AppRoutes.partnerVerificationStatus);
+              },
+              child: const Text('Check Status'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     final lat = double.tryParse(_latController.text.trim());
