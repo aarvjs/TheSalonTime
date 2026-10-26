@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Customer profile photos
+    match /customer_photos/{fileName} {
+      // Allow reading customer profile photos
+      allow read: if true;
+
+      // Allow authenticated user to upload photo (up to 10MB, images only)
+      allow write: if isAuthenticated()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Partner documents and salon photos
+    match /partner_docs/{fileName} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /salon_photos/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Fallback for all other assets
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}

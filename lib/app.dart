@@ -5,7 +5,14 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/role_theme.dart';
 
 class SalonTimesApp extends StatefulWidget {
-  const SalonTimesApp({super.key});
+  final bool firebaseInitialized;
+  final String? firebaseInitError;
+
+  const SalonTimesApp({
+    super.key,
+    this.firebaseInitialized = true,
+    this.firebaseInitError,
+  });
 
   @override
   State<SalonTimesApp> createState() => _SalonTimesAppState();

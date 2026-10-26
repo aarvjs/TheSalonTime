@@ -4,11 +4,13 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/asset_constants.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/role_theme.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../profile/services/customer_profile_service.dart';
+import '../services/customer_auth_service.dart';
+import 'customer_otp_screen.dart';
 
 class CustomerLoginScreen extends StatefulWidget {
   const CustomerLoginScreen({super.key});
@@ -21,6 +23,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -29,117 +32,74 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
   }
 
   void _onContinue() {
+    if (_isLoading) return; // Prevent duplicate taps
+
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
-      Future.delayed(const Duration(seconds: 1), () {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-        });
-        _showOtpDialog();
-      });
+      final rawPhone = _phoneController.text.trim().replaceAll(RegExp(r'\D'), '');
+      final fullPhoneNumber = '${AppConstants.defaultCountryCode}$rawPhone';
+
+      CustomerAuthService.instance.sendOtp(
+        fullPhoneNumber: fullPhoneNumber,
+        onVerificationFailed: (errorMessage) {
+          if (!mounted) return;
+          setState(() {
+            _isLoading = false;
+            _errorMessage = errorMessage;
+          });
+        },
+        onCodeSent: (verificationId, resendToken) {
+          if (!mounted) return;
+          setState(() {
+            _isLoading = false;
+          });
+          Navigator.pushNamed(
+            context,
+            AppRoutes.customerOtp,
+            arguments: CustomerOtpScreenArgs(
+              phoneNumber: fullPhoneNumber,
+              verificationId: verificationId,
+              resendToken: resendToken,
+            ),
+          );
+        },
+        onVerificationCompleted: (credential) async {
+          // Automatic SMS retrieval on Android devices
+          try {
+            final userCredential = await CustomerAuthService.instance.signInWithCredential(credential);
+            final uid = userCredential.user?.uid;
+            if (uid != null && mounted) {
+              final profile = await CustomerProfileService.instance.getCustomerProfile(uid);
+              if (!mounted) return;
+              if (profile == null || !profile.profileCompleted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.customerProfileSetup,
+                  (route) => false,
+                );
+              } else {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.customerHome,
+                  (route) => false,
+                );
+              }
+            }
+          } catch (e) {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+                _errorMessage = e.toString();
+              });
+            }
+          }
+        },
+      );
     }
-  }
-
-  void _showOtpDialog() {
-    final colors = RoleTheme.of(context);
-    final otpControllers = List.generate(4, (_) => TextEditingController());
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: colors.cardBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            top: AppDimensions.lg,
-            left: AppDimensions.screenPaddingHorizontal,
-            right: AppDimensions.screenPaddingHorizontal,
-            bottom: MediaQuery.of(context).viewInsets.bottom + AppDimensions.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: AppDimensions.lg),
-              Text(
-                'Verify Phone Number',
-                style: AppTextStyles.h2(color: colors.textPrimary),
-              ),
-              const SizedBox(height: AppDimensions.xs),
-              Text(
-                'Enter the 4-digit code sent to ${AppConstants.defaultCountryCode} ${_phoneController.text}',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.subtitle(color: colors.textSecondary),
-              ),
-              const SizedBox(height: AppDimensions.xl),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(4, (index) {
-                  return SizedBox(
-                    width: 54,
-                    height: 58,
-                    child: TextField(
-                      controller: otpControllers[index],
-                      autofocus: index == 0,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      style: AppTextStyles.h2(color: colors.textPrimary),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        filled: true,
-                        fillColor: colors.surface,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: colors.border, width: 1.2),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: colors.primary, width: 2.0),
-                        ),
-                      ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty && index < 3) {
-                          FocusScope.of(context).nextFocus();
-                        }
-                      },
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: AppDimensions.xl),
-              AppButton(
-                text: 'Verify & Continue',
-                backgroundColor: colors.primary,
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    AppRoutes.customerHome,
-                    (route) => false,
-                  );
-                },
-              ),
-              const SizedBox(height: AppDimensions.sm),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -224,8 +184,8 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                       const SizedBox(height: 16),
                       // Center Vector Artwork Avatar Illustration
                       Container(
-                        width: 150,
-                        height: 150,
+                        width: 140,
+                        height: 140,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           boxShadow: [
@@ -237,7 +197,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                           ],
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(75),
+                          borderRadius: BorderRadius.circular(70),
                           child: Image.asset(
                             illuAsset,
                             fit: BoxFit.cover,
@@ -255,23 +215,28 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Login to continue your journey',
+                        'Login with your mobile number to continue',
                         style: AppTextStyles.subtitle(color: AppColors.mutedTextGray).copyWith(
                           fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 24),
-                      // Mobile Number Input Field with +91 Prefix Dropdown
+                      // Mobile Number Input Field with +91 Prefix
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         validator: Validators.validatePhone,
+                        onChanged: (_) {
+                          if (_errorMessage != null) {
+                            setState(() => _errorMessage = null);
+                          }
+                        },
                         style: AppTextStyles.body(color: AppColors.warmBlack).copyWith(
                           fontWeight: FontWeight.w500,
                           fontSize: 15,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Mobile Number',
+                          hintText: '10-Digit Mobile Number',
                           hintStyle: AppTextStyles.subtitle(color: AppColors.mutedTextGray),
                           filled: true,
                           fillColor: Colors.white,
@@ -310,10 +275,40 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                           ),
                         ),
                       ),
+
+                      // Error Banner (if any)
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(
+                                    color: Colors.red.shade900,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 20),
                       // Primary Continue CTA Button
                       AppButton(
-                        text: 'Continue',
+                        text: 'Get Verification Code',
                         isLoading: _isLoading,
                         backgroundColor: primaryAccent,
                         onPressed: _onContinue,

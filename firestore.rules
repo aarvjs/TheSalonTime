@@ -1,0 +1,151 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validGender(data) {
+      return !('gender' in data)
+        || data.gender in [
+          'Male',
+          'Female',
+          'Man',
+          'Woman',
+          'Other',
+          'Prefer not to say',
+          ''
+        ];
+    }
+
+    function validProfile(data) {
+      return validGender(data)
+        && (
+          !('displayName' in data)
+          || (
+            data.displayName is string
+            && data.displayName.size() <= 60
+          )
+        )
+        && (
+          !('photoUrl' in data)
+          || data.photoUrl == null
+          || data.photoUrl is string
+        )
+        && (
+          !('profileCompleted' in data)
+          || data.profileCompleted is bool
+        )
+        && (
+          !('latitude' in data)
+          || (
+            data.latitude is number
+            && data.latitude >= -90
+            && data.latitude <= 90
+          )
+        )
+        && (
+          !('longitude' in data)
+          || (
+            data.longitude is number
+            && data.longitude >= -180
+            && data.longitude <= 180
+          )
+        )
+        && (
+          !('locationPermissionStatus' in data)
+          || data.locationPermissionStatus in [
+            'granted',
+            'denied',
+            'deniedForever',
+            'unknown'
+          ]
+        );
+    }
+
+    // CUSTOMER PROFILES
+    match /customers/{uid} {
+
+      // Users can get their own profile (or other authenticated users for bookings)
+      allow get: if signedIn();
+
+      // Prevent listing/dumping all customer profiles
+      allow list: if false;
+
+      // Create a profile only for the authenticated user
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'phoneNumber',
+          'displayName',
+          'gender',
+          'photoUrl',
+          'profileCompleted',
+          'createdAt',
+          'updatedAt',
+          'latitude',
+          'longitude',
+          'locationUpdatedAt',
+          'locationPermissionStatus'
+        ])
+        && request.resource.data.uid == uid
+        && validProfile(request.resource.data);
+
+      // Update permitted profile fields only
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'phoneNumber',
+          'displayName',
+          'gender',
+          'photoUrl',
+          'profileCompleted',
+          'createdAt',
+          'updatedAt',
+          'latitude',
+          'longitude',
+          'locationUpdatedAt',
+          'locationPermissionStatus'
+        ])
+        && request.resource.data.uid == uid
+        // Immutable security fields: uid, phoneNumber and createdAt cannot be altered
+        && (!('phoneNumber' in resource.data) || request.resource.data.phoneNumber == resource.data.phoneNumber)
+        && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt)
+        // Disallow touching immutable keys
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'createdAt'])
+        // Permitted update fields only
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName',
+          'gender',
+          'phoneNumber',
+          'photoUrl',
+          'profileCompleted',
+          'updatedAt',
+          'latitude',
+          'longitude',
+          'locationUpdatedAt',
+          'locationPermissionStatus'
+        ])
+        && validProfile(request.resource.data);
+
+      // Customer documents cannot be deleted from the client
+      allow delete: if false;
+    }
+
+    // Partner, manager, and salon collections
+    match /partners/{partnerId} {
+      allow read, write: if signedIn() && request.auth.uid == partnerId;
+    }
+
+    match /salons/{salonId} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+  }
+}

@@ -7,6 +7,7 @@ import '../data/product_data.dart';
 import '../data/salon_data.dart';
 import '../data/service_data.dart';
 import '../widgets/category_section.dart';
+import '../widgets/customer_drawer.dart';
 import '../widgets/home_banner_slider.dart';
 import '../widgets/home_header.dart';
 import '../widgets/home_search_bar.dart';
@@ -35,24 +36,32 @@ class CustomerHomeScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
+      drawer: const CustomerDrawer(),
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // 1. Top Header & Greeting (Scrolls away)
+            // 1. Top Brand Header with Drawer Hamburger & The Salon Times Design
             SliverToBoxAdapter(
               child: Column(
                 children: [
-                  HomeHeader(
-                    locationName: 'Kanpur',
-                    greetingText: isMale ? 'Good evening, Arvind' : 'Good evening, Ananya',
-                    avatarPath: avatarAsset,
-                    onNotificationTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('No new notifications')),
+                  Builder(
+                    builder: (innerContext) {
+                      return HomeHeader(
+                        avatarPath: avatarAsset,
+                        onMenuTap: () {
+                          Scaffold.of(innerContext).openDrawer();
+                        },
+                        onNotificationTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('No new notifications')),
+                          );
+                        },
+                        onProfileTap: () {
+                          Scaffold.of(innerContext).openDrawer();
+                        },
                       );
                     },
-                    onProfileTap: () {},
                   ),
                   const SizedBox(height: 2),
                 ],

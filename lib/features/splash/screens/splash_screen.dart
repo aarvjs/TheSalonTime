@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/asset_constants.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/role_theme.dart';
 import '../../../shared/widgets/app_logo.dart';
+import '../../customer/profile/services/customer_profile_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -42,11 +45,39 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    _timer = Timer(const Duration(seconds: 3), () {
+    _timer = Timer(const Duration(milliseconds: 2200), () async {
+      if (!mounted) return;
+      await _checkAuthStateAndNavigate();
+    });
+  }
+
+  Future<void> _checkAuthStateAndNavigate() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Customer is persistently signed in
+        final profile = await CustomerProfileService.instance.getCustomerProfile(user.uid);
+        if (!mounted) return;
+
+        if (profile == null || !profile.profileCompleted) {
+          Navigator.pushReplacementNamed(context, AppRoutes.customerProfileSetup);
+        } else {
+          // Restore saved gender preference from Firestore
+          final isMale = profile.gender.toLowerCase() == 'male' || profile.gender == 'Man';
+          RoleTheme.controllerOf(context).setThemeMode(
+            isMale ? AppRoleThemeMode.customerMale : AppRoleThemeMode.customerFemale,
+          );
+          Navigator.pushReplacementNamed(context, AppRoutes.customerHome);
+        }
+      } else {
+        // Signed out -> Onboarding
+        Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
+      }
+    } catch (_) {
       if (mounted) {
         Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
       }
-    });
+    }
   }
 
   @override

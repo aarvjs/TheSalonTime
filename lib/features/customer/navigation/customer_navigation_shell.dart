@@ -4,6 +4,7 @@ import '../explore/screens/explore_screen.dart';
 import '../favorites/screens/favorites_screen.dart';
 import '../home/screens/customer_home_screen.dart';
 import '../home/widgets/customer_bottom_navigation.dart';
+import '../location/services/customer_location_service.dart';
 import '../profile/screens/profile_screen.dart';
 
 class CustomerNavigationShell extends StatefulWidget {
@@ -33,6 +34,11 @@ class _CustomerNavigationShellState extends State<CustomerNavigationShell> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        CustomerLocationService.instance.checkAndPromptLocation(context);
+      }
+    });
   }
 
   @override

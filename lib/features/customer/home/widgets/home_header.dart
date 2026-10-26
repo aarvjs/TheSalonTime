@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_text_styles.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../../../core/constants/asset_constants.dart';
 import '../../../../core/theme/role_theme.dart';
 
 class HomeHeader extends StatelessWidget {
-  final String locationName;
-  final String greetingText;
   final String avatarPath;
+  final VoidCallback? onMenuTap;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onProfileTap;
 
   const HomeHeader({
     super.key,
-    this.locationName = 'Kanpur',
-    this.greetingText = 'Good evening, Arvind',
     required this.avatarPath,
+    this.onMenuTap,
     this.onNotificationTap,
     this.onProfileTap,
   });
@@ -23,54 +22,89 @@ class HomeHeader extends StatelessWidget {
     final colors = RoleTheme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Left: Location & Greeting
+          // Left: Drawer Hamburger Button + "The Salon Times" Branding
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.location_on_rounded,
-                      size: 16,
-                      color: colors.primary,
+                // 1. Drawer Hamburger Menu Button
+                GestureDetector(
+                  onTap: onMenuTap,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: colors.cardBackground,
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(color: colors.border, width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      locationName,
-                      style: AppTextStyles.bodyBold(color: colors.textPrimary).copyWith(
-                        fontSize: 14,
+                    child: Center(
+                      child: Icon(
+                        Icons.menu_rounded,
+                        color: colors.textPrimary,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: colors.textSecondary,
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  greetingText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.h2(color: colors.textPrimary).copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(width: 12),
+
+                // 2. Leaf Monogram Logo + "The Salon Times" Name Design
+                SvgPicture.asset(
+                  AssetConstants.leafLogo,
+                  width: 24,
+                  height: 30,
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'THE SALON TIMES',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        'PREMIUM BEAUTY & GROOMING',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                          color: colors.primary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          // Right: Notification & Profile Avatar
+
+          const SizedBox(width: 10),
+
+          // Right: Notification Bell & Profile Avatar
           Row(
             children: [
               // Notification Button
@@ -115,26 +149,27 @@ class HomeHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
+
               // Profile Avatar Button
               GestureDetector(
                 onTap: onProfileTap,
                 child: Container(
-                  width: 44,
-                  height: 44,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: colors.secondary, width: 2.0),
+                    border: Border.all(color: colors.secondary, width: 1.8),
                     boxShadow: [
                       BoxShadow(
                         color: colors.secondary.withValues(alpha: 0.2),
-                        blurRadius: 10,
+                        blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(21),
                     child: Image.asset(
                       avatarPath,
                       fit: BoxFit.cover,
