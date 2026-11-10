@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/constants/asset_constants.dart';
@@ -29,15 +31,59 @@ class _ManagerLoginScreenState extends State<ManagerLoginScreen> {
     super.dispose();
   }
 
-  void _onLogin() {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _isLoading = true);
+  Future<void> _onLogin() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (!mounted) return;
-        setState(() => _isLoading = false);
+    setState(() => _isLoading = true);
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    try {
+      // 1. Real Firebase Auth sign-in
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final uid = cred.user?.uid;
+      if (uid != null && uid.isNotEmpty) {
+        final doc = await FirebaseFirestore.instance.collection('branch_managers').doc(uid).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          final salonName = data['assignedSalonName'] as String? ?? data['assignedBranchName'] as String? ?? 'Assigned Salon';
+          final mgrName = data['fullName'] as String? ?? cred.user?.displayName ?? 'Manager';
+
+          BranchManagerState.instance.updateAssignedBranch(
+            salonName: salonName,
+            branchName: salonName,
+          );
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.managerEmerald,
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Welcome $mgrName! Connected to $salonName.'),
+                  ),
+                ],
+              ),
+            ),
+          );
+
+          Navigator.pushReplacementNamed(context, AppRoutes.managerMain);
+          return;
+        }
+      }
+    } catch (e) {
+      // Demo credentials fallback for offline testing
+      if (email == 'vikram.manager@velvetsalon.com' && password == 'manager123') {
         final branch = BranchManagerState.instance.session;
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.managerEmerald,
@@ -46,18 +92,26 @@ class _ManagerLoginScreenState extends State<ManagerLoginScreen> {
                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Welcome ${branch.managerName}! Connected to ${branch.assignedBranchName}.',
-                  ),
+                  child: Text('Welcome ${branch.managerName}! Connected to ${branch.assignedBranchName}.'),
                 ),
               ],
             ),
           ),
         );
-
-        // Open the dashboard for the manager's assigned branch
         Navigator.pushReplacementNamed(context, AppRoutes.managerMain);
-      });
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.burntOrange,
+            content: Text('Manager login failed: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

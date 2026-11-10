@@ -77,8 +77,9 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
         );
       }
 
-      // 3. Set local partner state
+      // 3. Set local partner state & sync dynamic data from Firestore
       PartnerState.instance.setPartner(partner);
+      await PartnerState.instance.loadPartnerDataFromFirestore(user.uid);
 
       if (mounted) {
         RoleTheme.controllerOf(context).setThemeMode(AppRoleThemeMode.partner);

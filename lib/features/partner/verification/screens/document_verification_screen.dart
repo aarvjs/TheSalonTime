@@ -1039,6 +1039,7 @@ class _DocumentVerificationScreenState extends State<DocumentVerificationScreen>
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: AppColors.copper, width: 1.8),
+              
             ),
           ),
         ),

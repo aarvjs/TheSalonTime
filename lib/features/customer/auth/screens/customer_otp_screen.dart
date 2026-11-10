@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/role_theme.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../location/services/customer_location_service.dart';
 import '../../profile/services/customer_profile_service.dart';
 import '../services/customer_auth_service.dart';
 
@@ -127,6 +128,9 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen> {
       if (user == null) {
         throw 'User session could not be established. Please retry.';
       }
+
+      // Reset location session flag on new login so new user is prompted
+      CustomerLocationService.instance.resetForNewLogin();
 
       // Save the initially selected gender in customer Firestore document customers/{uid}
       if (mounted) {

@@ -6,9 +6,17 @@ import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../data/partner_state.dart';
 import '../../models/partner_models.dart';
+import '../../services/manager_auth_service.dart';
 
 class CreateBranchManagerScreen extends StatefulWidget {
-  const CreateBranchManagerScreen({super.key});
+  final String? initialSalonId;
+  final String? initialSalonName;
+
+  const CreateBranchManagerScreen({
+    super.key,
+    this.initialSalonId,
+    this.initialSalonName,
+  });
 
   @override
   State<CreateBranchManagerScreen> createState() => _CreateBranchManagerScreenState();
@@ -23,15 +31,31 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
   final _tempPasswordController = TextEditingController();
   bool _obscurePassword = true;
 
-  String? _selectedBranchId;
+  String? _selectedSalonId;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    final branches = PartnerState.instance.branches;
-    if (branches.isNotEmpty) {
-      _selectedBranchId = branches.first.branchId;
+    _selectedSalonId = widget.initialSalonId;
+    if (_selectedSalonId == null) {
+      final salons = PartnerState.instance.salons;
+      if (salons.isNotEmpty) {
+        _selectedSalonId = salons.first.salonId;
+      }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_selectedSalonId == null) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic> && args['salonId'] != null) {
+        setState(() {
+          _selectedSalonId = args['salonId'] as String;
+        });
+      }
     }
   }
 
@@ -47,20 +71,20 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
   void _onSaveManager() {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedBranchId == null) {
+    if (_selectedSalonId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppColors.burntOrange,
-          content: Text('Please select an assigned branch for this manager.'),
+          content: Text('Please select an assigned salon location for this manager.'),
         ),
       );
       return;
     }
 
-    final salon = PartnerState.instance.salon;
-    final branch = PartnerState.instance.branches.firstWhere(
-      (b) => b.branchId == _selectedBranchId,
-      orElse: () => PartnerState.instance.branches.first,
+    final salons = PartnerState.instance.salons;
+    final salon = salons.firstWhere(
+      (s) => s.salonId == _selectedSalonId,
+      orElse: () => PartnerState.instance.salon,
     );
 
     // Show confirmation dialog with summary before saving
@@ -85,8 +109,8 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
             _buildSummaryRow('Manager Name:', _fullNameController.text.trim()),
             _buildSummaryRow('Mobile:', _phoneController.text.trim()),
             _buildSummaryRow('Email:', _emailController.text.trim()),
-            _buildSummaryRow('Salon:', salon.name),
-            _buildSummaryRow('Assigned Branch:', branch.branchName),
+            _buildSummaryRow('Assigned Salon:', salon.name),
+            _buildSummaryRow('Location:', salon.areaOrCity),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
@@ -95,7 +119,7 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Note: A manager will only have access to operations for this assigned branch.',
+                'Note: A manager will only have access to operations for this specific salon location. Creating this manager account will NOT log out your partner session.',
                 style: AppTextStyles.caption(color: AppColors.charcoal).copyWith(fontSize: 11),
               ),
             ),
@@ -113,7 +137,7 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              _commitManagerCreation(branch, salon);
+              _commitManagerCreation(salon);
             },
             child: const Text('Confirm & Save'),
           ),
@@ -122,40 +146,58 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
     );
   }
 
-  void _commitManagerCreation(BranchModel branch, SalonModel salon) {
+  Future<void> _commitManagerCreation(SalonModel salon) async {
     setState(() => _isLoading = true);
 
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      final newManager = BranchManagerModel(
-        managerId: 'mgr_${DateTime.now().millisecondsSinceEpoch}',
+    try {
+      final partner = PartnerState.instance.partner;
+      final newManager = await ManagerAuthService.instance.createManagerAccount(
+        email: _emailController.text.trim(),
+        password: _tempPasswordController.text.trim(),
         fullName: _fullNameController.text.trim(),
         phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        assignedSalonId: salon.salonId,
-        assignedSalonName: salon.name,
-        assignedBranchId: branch.branchId,
-        assignedBranchName: branch.branchName,
-        isActive: true,
-        createdAt: DateTime.now(),
+        salonId: salon.salonId,
+        salonName: salon.name,
+        partnerId: partner.id,
       );
 
       PartnerState.instance.addManager(newManager);
+      PartnerState.instance.assignManagerToSalon(
+        salonId: salon.salonId,
+        managerId: newManager.managerId,
+        managerName: newManager.fullName,
+      );
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.copper,
           content: Text(
-            'Manager ${newManager.fullName} assigned to ${branch.branchName}!',
+            'Manager ${newManager.fullName} provisioned & assigned to ${salon.name}!',
           ),
         ),
       );
 
-      // Navigate to the main Partner Dashboard shell!
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.partnerMain, (route) => false);
-    });
+      // Navigate back to the branches screen or main Partner Dashboard shell
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.partnerMain, (route) => false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.burntOrange,
+          content: Text('Failed to create manager account: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _skipForNow() {
@@ -170,8 +212,11 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final salon = PartnerState.instance.salon;
-    final branches = PartnerState.instance.branches;
+    final salons = PartnerState.instance.salons;
+    final selectedSalon = salons.firstWhere(
+      (s) => s.salonId == _selectedSalonId,
+      orElse: () => salons.first,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.warmIvory,
@@ -180,7 +225,7 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'Assign Branch Manager',
+          'Assign Salon Manager',
           style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 18),
         ),
         leading: IconButton(
@@ -219,7 +264,7 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
                           color: AppColors.copper,
                           shape: BoxShape.circle,
                         ),
-                        child: const Text('2', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text('★', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -227,11 +272,11 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Branch Manager Delegation',
+                              'Salon Manager Delegation',
                               style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
                             ),
                             Text(
-                              'Step 2 of 2: Assign operational manager for your branch',
+                              'Assign an operational manager for this salon location',
                               style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 11),
                             ),
                           ],
@@ -259,11 +304,11 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              salon.name,
+                              selectedSalon.name,
                               style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 14),
                             ),
                             Text(
-                              'Category: ${salon.category}',
+                              '${selectedSalon.category} • ${selectedSalon.areaOrCity}',
                               style: AppTextStyles.caption(color: AppColors.mutedTextGray),
                             ),
                           ],
@@ -274,9 +319,9 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Assigned Branch Selector
+                // Assigned Salon Location Selector
                 Text(
-                  'Assign to Branch',
+                  'Assign to Salon Location',
                   style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 13),
                 ),
                 const SizedBox(height: 6),
@@ -289,18 +334,18 @@ class _CreateBranchManagerScreenState extends State<CreateBranchManagerScreen> {
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _selectedBranchId ?? (branches.isNotEmpty ? branches.first.branchId : null),
+                      value: _selectedSalonId ?? (salons.isNotEmpty ? salons.first.salonId : null),
                       isExpanded: true,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.copper),
                       style: AppTextStyles.body(color: AppColors.warmBlack).copyWith(fontSize: 14),
-                      items: branches.map((b) {
+                      items: salons.map((s) {
                         return DropdownMenuItem<String>(
-                          value: b.branchId,
-                          child: Text('${b.branchName} (${b.city})'),
+                          value: s.salonId,
+                          child: Text('${s.name} (${s.areaOrCity})'),
                         );
                       }).toList(),
                       onChanged: (val) {
-                        if (val != null) setState(() => _selectedBranchId = val);
+                        if (val != null) setState(() => _selectedSalonId = val);
                       },
                     ),
                   ),

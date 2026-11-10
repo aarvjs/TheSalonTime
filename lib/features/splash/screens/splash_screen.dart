@@ -71,6 +71,8 @@ class _SplashScreenState extends State<SplashScreen>
         if (partnerProfile != null) {
           if (!mounted) return;
           PartnerState.instance.setPartner(partnerProfile);
+          await PartnerState.instance.loadPartnerDataFromFirestore(user.uid);
+          if (!mounted) return;
           RoleTheme.controllerOf(context).setThemeMode(AppRoleThemeMode.partner);
 
           if (partnerProfile.verificationStatus == PartnerVerificationStatus.approved) {

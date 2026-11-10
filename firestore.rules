@@ -11,6 +11,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isSuperAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
     function validGender(data) {
       return !('gender' in data)
         || data.gender in [
@@ -75,8 +81,8 @@ service cloud.firestore {
       // Users can get their own profile (or other authenticated users for bookings)
       allow get: if signedIn();
 
-      // Prevent listing/dumping all customer profiles
-      allow list: if false;
+      // Only super admins can list all customer profiles
+      allow list: if isSuperAdmin();
 
       // Create a profile only for the authenticated user
       allow create: if isOwner(uid)
@@ -165,6 +171,14 @@ service cloud.firestore {
           || data.profilePhoto is string
         )
         && (
+          !('businessModel' in data)
+          || data.businessModel in ['salon', 'homeService', 'home_service', 'both']
+        )
+        && (
+          !('activeBusinessModel' in data)
+          || data.activeBusinessModel in ['salon', 'homeService', 'home_service', 'both']
+        )
+        && (
           !('verificationStatus' in data)
           || data.verificationStatus in [
             'not_submitted',
@@ -203,11 +217,11 @@ service cloud.firestore {
     // PARTNER PROFILES
     match /partners/{partnerId} {
 
-      // Partners can only read their own private profile
-      allow get: if isOwner(partnerId);
+      // Partners can read their own profile, or verified super admin can view
+      allow get: if isOwner(partnerId) || isSuperAdmin();
 
-      // Prevent bulk export / listing of all partner documents
-      allow list: if false;
+      // Only verified super admins can list all partners
+      allow list: if isSuperAdmin();
 
       // Create new partner profile upon registration
       allow create: if isOwner(partnerId)
@@ -219,6 +233,8 @@ service cloud.firestore {
           'businessName',
           'role',
           'verificationStatus',
+          'businessModel',
+          'activeBusinessModel',
           'profilePhoto',
           'legalName',
           'businessType',
@@ -236,8 +252,9 @@ service cloud.firestore {
         && request.resource.data.verificationStatus in ['not_submitted', 'submitted', 'pending']
         && validPartnerProfile(request.resource.data);
 
-      // Update permitted fields only
-      allow update: if isOwner(partnerId)
+      // Update permitted fields only (or super admin reviewing/approving)
+      allow update: if isSuperAdmin() || (
+        isOwner(partnerId)
         && request.resource.data.keys().hasOnly([
           'uid',
           'fullName',
@@ -246,6 +263,8 @@ service cloud.firestore {
           'businessName',
           'role',
           'verificationStatus',
+          'businessModel',
+          'activeBusinessModel',
           'profilePhoto',
           'legalName',
           'businessType',
@@ -269,8 +288,9 @@ service cloud.firestore {
           'createdAt',
           'role'
         ])
-        // Ordinary users can NEVER approve their own account:
-        && request.resource.data.verificationStatus != 'approved'
+        // Ordinary users can NEVER approve their own account or modify reviewer notes:
+        && request.resource.data.verificationStatus in ['not_submitted', 'submitted', 'pending']
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reviewedBy', 'reviewedAt'])
         // Only permitted fields may be updated by client
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'fullName',
@@ -281,19 +301,113 @@ service cloud.firestore {
           'regNumber',
           'businessAddress',
           'documents',
+          'businessModel',
+          'activeBusinessModel',
           'verificationStatus',
           'submittedAt',
           'updatedAt'
         ])
-        && validPartnerProfile(request.resource.data);
+        && validPartnerProfile(request.resource.data)
+      );
 
       // Partner documents cannot be deleted from the client
       allow delete: if false;
     }
 
+    // UNIFIED SALON LOCATIONS
     match /salons/{salonId} {
-      allow read: if true;
-      allow write: if signedIn();
+      // Anyone can read and update salon locations
+      allow read, write: if true;
+    }
+
+    // MULTIPLE SALON BRANCHES (BACKWARD COMPATIBILITY MIRROR)
+    match /branches/{branchId} {
+      allow read, write: if true;
+    }
+
+    // HOME SERVICE PROFILES
+    match /home_service_profiles/{partnerId} {
+      allow read, write: if true;
+    }
+
+    // BRANCH MANAGERS
+    match /branch_managers/{managerId} {
+      // Manager themselves, appointing partner, super admin, or guest can read/write
+      allow read, write: if true;
+    }
+
+    // APPOINTMENTS / BOOKINGS
+    match /bookings/{bookingId} {
+      allow read, write: if true;
+    }
+
+    // SYSTEM SETUP & INITIALIZATION LOCK (ONE-TIME PROVISIONING)
+    match /system/admin_setup {
+      // Anyone can check if super admin setup is completed
+      allow get: if true;
+      allow list: if false;
+
+      // Allowed to create ONLY ONCE by the first authenticated user during initial setup
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/system/admin_setup)
+        && request.resource.data.superAdminUid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'super_admin'
+        && request.resource.data.keys().hasOnly(['superAdminUid', 'email', 'role', 'initializedAt']);
+
+      // Permanently immutable: cannot be modified or deleted by anyone from client
+      allow update, delete: if false;
+    }
+
+    function validAdminProfile(data) {
+      return data.keys().hasOnly([
+          'uid',
+          'name',
+          'email',
+          'role',
+          'department',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid == request.auth.uid
+        && data.role == 'super_admin'
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 100
+        && (!('department' in data) || (data.department is string && data.department.size() <= 100))
+        && (!('status' in data) || data.status in ['active', 'inactive', 'suspended']);
+    }
+
+    // SUPER ADMIN PROFILES
+    match /admins/{adminId} {
+      // An admin can read their own profile, or any verified super admin can view
+      allow get: if signedIn() && (request.auth.uid == adminId || isSuperAdmin());
+
+      // Only verified super admins can list admins
+      allow list: if signedIn() && isSuperAdmin();
+
+      // Initial one-time registration:
+      // Allowed ONLY IF system/admin_setup did not exist before and is created in the same atomic transaction for this user
+      allow create: if signedIn()
+        && request.auth.uid == adminId
+        && !exists(/databases/$(database)/documents/system/admin_setup)
+        && getAfter(/databases/$(database)/documents/system/admin_setup).data.superAdminUid == adminId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'super_admin'
+        && validAdminProfile(request.resource.data);
+
+      // Super admin can update their profile (name, department, updatedAt)
+      // but CANNOT modify uid, role, or createdAt
+      allow update: if signedIn()
+        && request.auth.uid == adminId
+        && isSuperAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'role', 'createdAt'])
+        && validAdminProfile(request.resource.data);
+
+      // Super admins cannot be deleted from client SDK
+      allow delete: if false;
     }
   }
 }

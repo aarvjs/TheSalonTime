@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/role_theme.dart';
 import '../../profile/services/customer_profile_service.dart';
+import '../../home/services/customer_location_state.dart';
 
 class CustomerLocationService {
   CustomerLocationService._();
@@ -15,11 +16,17 @@ class CustomerLocationService {
   /// Flag to ensure we don't repeatedly show the prompt on screen rebuilds during a single app session
   bool hasPromptedInSession = false;
 
+  /// Reset session flag on new login or phone number switch
+  void resetForNewLogin() {
+    hasPromptedInSession = false;
+  }
+
   /// Check and prompt for customer location after login
-  /// If [forceManual] is true (e.g. user clicked in Profile), will always prompt regardless of session flag
+  /// If [forceManual] or [isNewLogin] is true, will prompt regardless of session flag
   Future<void> checkAndPromptLocation(
     BuildContext context, {
     bool forceManual = false,
+    bool isNewLogin = false,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -27,8 +34,19 @@ class CustomerLocationService {
       return;
     }
 
-    if (!forceManual && hasPromptedInSession) {
-      // Avoid prompting repeatedly on every rebuild or tab switch
+    if (!forceManual && !isNewLogin && hasPromptedInSession) {
+      return;
+    }
+
+    // Check if this specific logged-in user already has coordinates saved in their profile
+    final profile = await CustomerProfileService.instance.getCustomerProfile(user.uid);
+    final hasProfileLocation = profile != null &&
+        profile.latitude != null &&
+        profile.longitude != null &&
+        profile.locationPermissionStatus != 'denied';
+
+    if (!forceManual && !isNewLogin && hasProfileLocation && CustomerLocationState.instance.hasSavedLocation) {
+      // Avoid prompting repeatedly if already set or saved
       return;
     }
 
@@ -41,13 +59,21 @@ class CustomerLocationService {
       // Case 1: Permission is ALREADY granted from previous login
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
-        // Refresh coordinates silently without showing any dialog
-        await refreshLocationSilently(user.uid);
+        if (context.mounted) {
+          await CustomerLocationState.instance.enableGpsLocation(context);
+        }
+        await CustomerProfileService.instance.updateLocation(
+          user.uid,
+          latitude: CustomerLocationState.instance.userLat,
+          longitude: CustomerLocationState.instance.userLng,
+          status: 'granted',
+        );
         return;
       }
 
       // Case 2: Permission is permanently denied
       if (permission == LocationPermission.deniedForever) {
+        CustomerLocationState.instance.setSkipped(true);
         if (forceManual && context.mounted) {
           _showPermanentlyDeniedDialog(context);
         }
@@ -63,7 +89,8 @@ class CustomerLocationService {
 
       final userAgreed = await _showLocationRationaleSheet(context);
       if (userAgreed != true) {
-        // User tapped "Not Now" / dismissed
+        // User tapped "Not Now" (skipped)
+        CustomerLocationState.instance.setSkipped(true);
         await CustomerProfileService.instance.updateLocationPermissionStatus(
           user.uid,
           'denied',
@@ -77,6 +104,7 @@ class CustomerLocationService {
         if (context.mounted) {
           _showServiceDisabledDialog(context);
         }
+        CustomerLocationState.instance.setSkipped(true);
         await CustomerProfileService.instance.updateLocationPermissionStatus(
           user.uid,
           'unknown',
@@ -88,6 +116,7 @@ class CustomerLocationService {
       permission = await Geolocator.requestPermission();
 
       if (permission == LocationPermission.denied) {
+        CustomerLocationState.instance.setSkipped(true);
         await CustomerProfileService.instance.updateLocationPermissionStatus(
           user.uid,
           'denied',
@@ -97,7 +126,7 @@ class CustomerLocationService {
             const SnackBar(
               behavior: SnackBarBehavior.floating,
               content: Text(
-                'Location permission was denied. You can enable it anytime from your Profile.',
+                'Location permission was denied. You can enable it anytime from your Profile or Home bar.',
               ),
             ),
           );
@@ -106,6 +135,7 @@ class CustomerLocationService {
       }
 
       if (permission == LocationPermission.deniedForever) {
+        CustomerLocationState.instance.setSkipped(true);
         await CustomerProfileService.instance.updateLocationPermissionStatus(
           user.uid,
           'deniedForever',
@@ -116,11 +146,17 @@ class CustomerLocationService {
         return;
       }
 
-      // Permission granted: retrieve current coordinates
+      // Permission granted: activate GPS in CustomerLocationState live
       if ((permission == LocationPermission.whileInUse ||
               permission == LocationPermission.always) &&
           context.mounted) {
-        await _fetchAndSaveCurrentPosition(context, user.uid);
+        await CustomerLocationState.instance.enableGpsLocation(context);
+        await CustomerProfileService.instance.updateLocation(
+          user.uid,
+          latitude: CustomerLocationState.instance.userLat,
+          longitude: CustomerLocationState.instance.userLng,
+          status: 'granted',
+        );
       }
     } catch (e, stack) {
       developer.log('Error handling location request: $e',

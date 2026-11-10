@@ -864,7 +864,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                       Expanded(
                         child: _buildStatColumn(
                           label: 'Total Bookings',
-                          value: '${state.bookings.length + 138}',
+                          value: '${state.bookings.length}',
                           icon: Icons.calendar_month_outlined,
                         ),
                       ),
@@ -888,7 +888,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                       Expanded(
                         child: _buildStatColumn(
                           label: 'Partner Rating',
-                          value: '4.9 ★',
+                          value: state.bookings.isEmpty ? 'New' : '4.9 ★',
                           icon: Icons.star_rate_rounded,
                           valueColor: const Color(0xFFB78103),
                         ),

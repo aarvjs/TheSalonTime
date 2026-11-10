@@ -81,8 +81,9 @@ class _PartnerRegisterScreenState extends State<PartnerRegisterScreen> {
         businessName: businessName,
       );
 
-      // 3. Update Partner state & role theme
+      // 3. Update Partner state & sync dynamic data from Firestore
       PartnerState.instance.setPartner(partner);
+      await PartnerState.instance.loadPartnerDataFromFirestore(user.uid);
 
       if (mounted) {
         RoleTheme.controllerOf(context).setThemeMode(AppRoleThemeMode.partner);

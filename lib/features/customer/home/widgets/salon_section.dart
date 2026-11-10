@@ -53,24 +53,58 @@ class SalonSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 256,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
+        if (salons.isEmpty)
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: salons.length,
-            itemBuilder: (context, index) {
-              final salon = salons[index];
-              return SalonCard(
-                salon: salon,
-                onTap: () {
-                  if (onSalonTap != null) onSalonTap!(salon);
-                },
-              );
-            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: colors.cardBackground,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: colors.border),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.storefront_outlined, size: 38, color: colors.textMuted),
+                  const SizedBox(height: 10),
+                  Text(
+                    'No salons near your current location',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Change your location or enable GPS to view nearest registered salons.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11.5, color: colors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            height: 256,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: salons.length,
+              itemBuilder: (context, index) {
+                final salon = salons[index];
+                return SalonCard(
+                  salon: salon,
+                  onTap: () {
+                    if (onSalonTap != null) onSalonTap!(salon);
+                  },
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }

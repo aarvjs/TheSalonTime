@@ -34,7 +34,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
     {
       'tag': 'DOORSTEP SERVICE',
       'title': 'Doorstep Home Service\nघर पर सर्विस शुरू करें',
-      'subtitle': 'Send stylists to customers & earn up to 50% more revenue',
+      'subtitle': 'Offer professional services at customer homes without owning a salon',
       'image': AssetConstants.partnerLoginIllu,
     },
     {
@@ -75,7 +75,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
           ],
         ),
         content: Text(
-          'Your partner account is in Explorer Mode. Creating salons and publishing services to customers requires an approved verification by The Salon Times Admin.',
+          'Your partner account is in Explorer Mode. Publishing salons & live customer bookings require approved verification by The Salon Times Admin.',
           style: AppTextStyles.body(color: AppColors.charcoal).copyWith(fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -107,9 +107,10 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
       builder: (context, _) {
         final state = PartnerState.instance;
         final partner = state.partner;
-        final salon = state.salon;
         final isVerified = partner.verificationStatus == PartnerVerificationStatus.approved;
-        final recentBookings = state.bookings.take(3).toList();
+        final recentBookings = state.bookings.take(4).toList();
+        final isSalonActive = state.isSalonModelActive;
+        final isHomeActive = state.isHomeServiceModelActive;
 
         return Scaffold(
           backgroundColor: AppColors.warmIvory,
@@ -204,7 +205,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                           InkWell(
                             onTap: () {
                               if (widget.onNavigateTab != null) {
-                                widget.onNavigateTab!(3); // Navigate to Profile tab
+                                widget.onNavigateTab!(3);
                               } else {
                                 Navigator.pushNamed(context, AppRoutes.partnerProfile);
                               }
@@ -219,6 +220,43 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                         ],
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Business Model Selector Pill Tabs
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFEBE6DF)),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildModelTab(
+                          title: 'Physical Salon',
+                          hindi: 'सैलून',
+                          icon: Icons.storefront_rounded,
+                          isSelected: state.activeBusinessModel == PartnerBusinessModel.salon,
+                          onTap: () => state.setActiveBusinessModel(PartnerBusinessModel.salon),
+                        ),
+                        _buildModelTab(
+                          title: 'Home Service',
+                          hindi: 'घर पर सर्विस',
+                          icon: Icons.home_repair_service_rounded,
+                          isSelected: state.activeBusinessModel == PartnerBusinessModel.homeService,
+                          onTap: () => state.setActiveBusinessModel(PartnerBusinessModel.homeService),
+                        ),
+                        _buildModelTab(
+                          title: 'Both Models',
+                          hindi: 'दोनों',
+                          icon: Icons.all_inclusive_rounded,
+                          isSelected: state.activeBusinessModel == PartnerBusinessModel.both,
+                          onTap: () => state.setActiveBusinessModel(PartnerBusinessModel.both),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -294,9 +332,231 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                     const SizedBox(height: 12),
                   ],
 
-                  // 1. Zomato-Style Hero Image Banner Carousel
+                  // Salon Location Filter Dropdown (shown when Salon is active)
+                  if (isSalonActive && state.salons.isNotEmpty) ...[
+                    Builder(
+                      builder: (context) {
+                        // Unique dropdown items to guarantee no duplicate assertion error
+                        final Set<String> validDropdownValues = {'all'};
+                        final List<DropdownMenuItem<String>> salonDropdownItems = [
+                          DropdownMenuItem(
+                            value: 'all',
+                            child: Text(
+                              'All Salon Locations (${state.salons.length})',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ];
+
+                        for (final s in state.salons) {
+                          final sId = s.salonId.trim();
+                          if (sId.isNotEmpty && !validDropdownValues.contains(sId)) {
+                            validDropdownValues.add(sId);
+                            salonDropdownItems.add(
+                              DropdownMenuItem(
+                                value: sId,
+                                child: Text(
+                                  '${s.name.isNotEmpty ? s.name : "Salon"} (${s.areaOrCity})',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+
+                        String effectiveSelectedValue = 'all';
+                        if (validDropdownValues.contains(state.selectedBranchId)) {
+                          effectiveSelectedValue = state.selectedBranchId;
+                        } else {
+                          for (final s in state.salons) {
+                            if (s.branches.any((b) => b.branchId == state.selectedBranchId)) {
+                              if (validDropdownValues.contains(s.salonId)) {
+                                effectiveSelectedValue = s.salonId;
+                                break;
+                              }
+                            }
+                          }
+                        }
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFEBE6DF)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.storefront_rounded, color: AppColors.copper, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'FILTER BY SALON LOCATION (सैलून चुनें)',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.mutedTextGray,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    DropdownButton<String>(
+                                      value: effectiveSelectedValue,
+                                      isExpanded: true,
+                                      underline: const SizedBox(),
+                                      icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.copper),
+                                      onChanged: (val) {
+                                        if (val != null) state.selectBranch(val);
+                                      },
+                                      items: salonDropdownItems,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  minimumSize: const Size(0, 30),
+                                ),
+                                onPressed: () {
+                                  if (!isVerified) {
+                                    _showRestrictedActionDialog(context);
+                                  } else {
+                                    Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
+                                  }
+                                },
+                                child: const Text('+ Add', style: TextStyle(color: AppColors.copper, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Home Service Quick Status Card (shown when Home Service is active)
+                  if (isHomeActive) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            state.homeProfile.isAvailable ? const Color(0xFF1B4F72) : const Color(0xFF2C3E50),
+                            const Color(0xFF154360),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.home_repair_service_rounded, color: Colors.white, size: 20),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Home Service Professional',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            'घर पर सर्विस (Doorstep Stylist)',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(alpha: 0.8),
+                                              fontSize: 10,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Online / Offline Switch
+                              Switch(
+                                value: state.homeProfile.isAvailable,
+                                activeThumbColor: Colors.greenAccent,
+                                activeTrackColor: Colors.white24,
+                                inactiveThumbColor: Colors.white60,
+                                inactiveTrackColor: Colors.black26,
+                                onChanged: (val) {
+                                  state.toggleHomeServiceAvailability(val);
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(color: Colors.white24, height: 1),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: _buildHomeBadge(
+                                  icon: Icons.radar_rounded,
+                                  label: '${state.homeProfile.serviceRadiusKm.toStringAsFixed(0)} km Radius',
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildHomeBadge(
+                                  icon: Icons.location_on_outlined,
+                                  label: state.homeProfile.baseCity,
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildHomeBadge(
+                                  icon: Icons.badge_outlined,
+                                  label: '${state.homeProfile.experienceYears} Yrs Exp',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Hero Image Banner Carousel
                   SizedBox(
-                    height: 165,
+                    height: 155,
                     child: PageView.builder(
                       controller: _bannerController,
                       itemCount: _heroBanners.length,
@@ -320,10 +580,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                Image.asset(
-                                  b['image']!,
-                                  fit: BoxFit.cover,
-                                ),
+                                Image.asset(b['image']!, fit: BoxFit.cover),
                                 Container(
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
@@ -331,7 +588,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                                       end: Alignment.centerRight,
                                       colors: [
                                         Colors.black.withValues(alpha: 0.85),
-                                        Colors.black.withValues(alpha: 0.60),
+                                        Colors.black.withValues(alpha: 0.55),
                                         Colors.transparent,
                                       ],
                                     ),
@@ -364,7 +621,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                                         b['title']!,
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontSize: 15,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w700,
                                           height: 1.25,
                                         ),
@@ -378,7 +635,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                                           b['subtitle']!,
                                           style: TextStyle(
                                             color: Colors.white.withValues(alpha: 0.85),
-                                            fontSize: 11,
+                                            fontSize: 10.5,
                                             height: 1.2,
                                           ),
                                           maxLines: 2,
@@ -395,7 +652,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
 
                   // Carousel Indicator Dots
                   Row(
@@ -415,267 +672,70 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // 2. High-Impact "CREATE / SETUP SALON" Action Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2C2C2C), Color(0xFF1E1E1E)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.copper,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(Icons.add_business_rounded, color: Colors.white, size: 28),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Setup / Create Salon',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'सैलून सेटअप करें (Address, Map & Timings)',
-                                style: TextStyle(
-                                  color: AppColors.champagneGold,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.copper,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  minimumSize: const Size(0, 32),
-                                ),
-                                onPressed: () {
-                                  if (!isVerified) {
-                                    _showRestrictedActionDialog(context);
-                                  } else {
-                                    Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
-                                  }
-                                },
-                                child: const Text(
-                                  '+ Create Salon Now',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 3. Salon Overview Banner Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFEBE6DF)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.asset(
-                                AssetConstants.partnerLoginIllu,
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    salon.name,
-                                    style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 15),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${salon.address}, ${salon.city}',
-                                    style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 11),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isVerified ? Colors.green.shade50 : AppColors.champagneGold.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isVerified ? 'Verified' : 'Pending',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: isVerified ? Colors.green.shade800 : const Color(0xFF9E7D1A),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        const Divider(height: 1, color: Color(0xFFEBE6DF)),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Expanded(
-                                    child: Text(
-                                      'Salon Open (दुकान चालू)',
-                                      style: AppTextStyles.caption(color: AppColors.charcoal).copyWith(fontSize: 11, fontWeight: FontWeight.w600),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Icon(
-                                    salon.isHomeServiceEnabled ? Icons.check_circle_outline : Icons.cancel_outlined,
-                                    size: 14,
-                                    color: salon.isHomeServiceEnabled ? Colors.green : AppColors.mutedTextGray,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      'Home Service: ${salon.isHomeServiceEnabled ? "ON" : "OFF"}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: salon.isHomeServiceEnabled ? Colors.green.shade800 : AppColors.mutedTextGray,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 4. Quick Actions (With Clear Vernacular Labels)
+                  // SECTION: Business Management
                   Text(
-                    'Quick Actions (शॉर्टकट)',
+                    'Business Management (बिजनेस मैनेजमेंट)',
                     style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 15),
                   ),
                   const SizedBox(height: 10),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildQuickCard(
-                        icon: Icons.add_business_rounded,
-                        label: 'Create Salon',
-                        hindi: '+ सैलून जोड़ें',
-                        color: AppColors.copper,
-                        onTap: () {
-                          if (!isVerified) {
-                            _showRestrictedActionDialog(context);
-                          } else {
-                            Navigator.pushNamed(context, AppRoutes.partnerCreateSalon);
-                          }
-                        },
+                      Expanded(
+                        child: _buildBusinessHubCard(
+                          icon: Icons.storefront_rounded,
+                          title: 'My Salons',
+                          subtitle: '${state.salons.length} Locations',
+                          hindi: 'सैलून लोकेशन्स',
+                          color: AppColors.copper,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.partnerBranches),
+                        ),
                       ),
-                      _buildQuickCard(
-                        icon: Icons.spa_rounded,
-                        label: 'Services',
-                        hindi: 'सेवाएं व रेट',
-                        color: AppColors.champagneGold,
-                        onTap: () {
-                          if (widget.onNavigateTab != null) {
-                            widget.onNavigateTab!(2);
-                          } else {
-                            Navigator.pushNamed(context, AppRoutes.partnerServices);
-                          }
-                        },
-                      ),
-                      _buildQuickCard(
-                        icon: Icons.home_repair_service_rounded,
-                        label: 'Home Service',
-                        hindi: 'घर पर सर्विस',
-                        color: Colors.green.shade700,
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.partnerHomeService),
-                      ),
-                      _buildQuickCard(
-                        icon: Icons.alt_route_rounded,
-                        label: 'Branches',
-                        hindi: 'ब्रांच देखें',
-                        color: AppColors.burntOrange,
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.partnerBranches),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildBusinessHubCard(
+                          icon: Icons.home_repair_service_rounded,
+                          title: 'Home Services',
+                          subtitle: state.homeProfile.isAvailable ? 'Taking Bookings' : 'Paused',
+                          hindi: 'घर पर सेवाएं',
+                          color: Colors.teal.shade700,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.partnerHomeService),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildBusinessHubCard(
+                          icon: Icons.account_balance_wallet_rounded,
+                          title: 'Earnings & Data',
+                          subtitle: '₹${state.todayEarnings.toStringAsFixed(0)} today',
+                          hindi: 'कमाई व हिसाब',
+                          color: Colors.green.shade800,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.partnerEarnings),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildBusinessHubCard(
+                          icon: Icons.manage_accounts_rounded,
+                          title: 'Profile & Settings',
+                          subtitle: isVerified ? 'Verified Account' : 'Verification Status',
+                          hindi: 'प्रोफाइल व सेटिंग्स',
+                          color: AppColors.warmBlack,
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.partnerProfile),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
-                  // 5. 4 Summary Metric Cards
+                  // Summary Metric Cards (Unified Salon Metrics)
                   Text(
-                    'Business Summary (आज का हिसाब)',
+                    state.selectedBranchId == 'all'
+                        ? 'Business Summary (कुल हिसाब)'
+                        : 'Location Summary: ${state.currentSalon?.name ?? state.currentBranch?.branchName ?? ""}',
                     style: AppTextStyles.h2(color: AppColors.warmBlack).copyWith(fontSize: 15),
                   ),
                   const SizedBox(height: 10),
@@ -683,11 +743,35 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                     children: [
                       Expanded(
                         child: _buildMetricCard(
-                          title: "Today's Bookings",
-                          hindi: 'आज की बुकिंग',
-                          value: '${state.todayBookingsCount}',
-                          icon: Icons.calendar_today_rounded,
+                          title: 'Total Salons',
+                          hindi: 'कुल सैलून',
+                          value: '${state.salons.length}',
+                          icon: Icons.storefront_rounded,
                           color: AppColors.copper,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildMetricCard(
+                          title: 'Active Salons',
+                          hindi: 'चालू सैलून',
+                          value: '${state.salons.where((s) => s.isActive).length}',
+                          icon: Icons.check_circle_outline_rounded,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildMetricCard(
+                          title: state.selectedBranchId == 'all' ? 'Total Bookings' : 'Branch Bookings',
+                          hindi: 'कुल बुकिंग',
+                          value: '${state.bookings.length}',
+                          icon: Icons.calendar_month_rounded,
+                          color: Colors.indigo.shade600,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -728,7 +812,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // 6. Recent Appointments Section
+                  // Recent Appointments Section
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -755,13 +839,23 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
 
                   if (recentBookings.isEmpty)
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: const Color(0xFFEBE6DF)),
                       ),
-                      child: const Center(child: Text('No bookings yet.')),
+                      child: Column(
+                        children: [
+                          Icon(Icons.calendar_month_outlined, size: 36, color: Colors.grey.shade400),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No bookings for this branch yet.',
+                            style: AppTextStyles.body(color: AppColors.mutedTextGray).copyWith(fontSize: 13),
+                          ),
+                        ],
+                      ),
                     )
                   else
                     ...recentBookings.map((b) => _buildBookingCard(context, b)),
@@ -776,51 +870,135 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
     );
   }
 
-  Widget _buildQuickCard({
+  Widget _buildModelTab({
+    required String title,
+    required String hindi,
     required IconData icon,
-    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.copper : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : AppColors.mutedTextGray,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : AppColors.warmBlack,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                hindi,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: isSelected ? Colors.white70 : AppColors.mutedTextGray,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeBadge({required IconData icon, required String label}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: Colors.white70),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBusinessHubCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
     required String hindi,
     required Color color,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        width: 76,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFEBE6DF)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 18),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey.shade400),
+              ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Text(
-              label,
-              style: AppTextStyles.caption(color: AppColors.warmBlack).copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-              textAlign: TextAlign.center,
+              title,
+              style: AppTextStyles.bodyBold(color: AppColors.warmBlack).copyWith(fontSize: 12.5),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 1),
+            Text(
+              subtitle,
+              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             Text(
               hindi,
-              style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(
-                fontSize: 9,
-              ),
-              textAlign: TextAlign.center,
+              style: AppTextStyles.caption(color: AppColors.mutedTextGray).copyWith(fontSize: 9),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -943,7 +1121,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Customer: ${b.customerName} • Ref: ${b.bookingRef}',
+                    'Branch: ${b.branchName} • Customer: ${b.customerName}',
                     style: AppTextStyles.caption(color: AppColors.mutedTextGray),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

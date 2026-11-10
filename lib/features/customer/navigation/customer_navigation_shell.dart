@@ -36,7 +36,7 @@ class _CustomerNavigationShellState extends State<CustomerNavigationShell> {
     _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        CustomerLocationService.instance.checkAndPromptLocation(context);
+        CustomerLocationService.instance.checkAndPromptLocation(context, isNewLogin: true);
       }
     });
   }

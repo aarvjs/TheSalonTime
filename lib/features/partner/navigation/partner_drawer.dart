@@ -82,7 +82,7 @@ class PartnerDrawer extends StatelessWidget {
               const SizedBox(height: 14),
               ListTile(
                 leading: const Icon(Icons.apartment_rounded, color: AppColors.copper),
-                title: const Text('All Branches (Aggregated)'),
+                title: Text('All Branches (${branches.length})'),
                 trailing: currentSelected == 'all'
                     ? const Icon(Icons.check_circle_rounded, color: AppColors.copper)
                     : null,
@@ -91,8 +91,14 @@ class PartnerDrawer extends StatelessWidget {
                   Navigator.pop(ctx);
                 },
               ),
+              if (branches.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  child: Text('No salon branches registered yet.', style: TextStyle(color: AppColors.mutedTextGray, fontSize: 13)),
+                ),
               ...branches.map((b) {
-                final isSelected = currentSelected == b.branchId;
+                final targetId = b.salonId.isNotEmpty ? b.salonId : b.branchId;
+                final isSelected = currentSelected == targetId || currentSelected == b.branchId || currentSelected == b.salonId;
                 return ListTile(
                   leading: const Icon(Icons.storefront_outlined, color: AppColors.copper),
                   title: Text(b.branchName),
@@ -101,7 +107,7 @@ class PartnerDrawer extends StatelessWidget {
                       ? const Icon(Icons.check_circle_rounded, color: AppColors.copper)
                       : null,
                   onTap: () {
-                    PartnerState.instance.selectBranch(b.branchId);
+                    PartnerState.instance.selectBranch(targetId);
                     Navigator.pop(ctx);
                   },
                 );
@@ -214,8 +220,8 @@ class PartnerDrawer extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   PartnerState.instance.selectedBranchId == 'all'
-                                      ? 'All Branches (${salon.branches.length})'
-                                      : (currentBranch?.branchName ?? 'Main Branch'),
+                                      ? 'All Branches (${PartnerState.instance.branches.length})'
+                                      : (PartnerState.instance.currentSalon?.name ?? currentBranch?.branchName ?? 'Main Branch'),
                                   style: AppTextStyles.caption(color: AppColors.warmBlack).copyWith(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 11,
@@ -286,7 +292,7 @@ class PartnerDrawer extends StatelessWidget {
                       _buildDrawerItem(
                         icon: Icons.alt_route_rounded,
                         activeIcon: Icons.alt_route_rounded,
-                        title: 'Manage Branches (${salon.branches.length})',
+                        title: 'Manage Branches (${PartnerState.instance.branches.length})',
                         isSelected: false,
                         onTap: () {
                           Navigator.pop(context);
@@ -459,15 +465,5 @@ class PartnerDrawer extends StatelessWidget {
         onTap: onTap,
       ),
     );
-  }
-}
-
-extension _BranchExt on BranchModel {
-  String get areaOrCity {
-    if (address.contains(',')) {
-      final parts = address.split(',');
-      return parts.first.trim();
-    }
-    return city;
   }
 }

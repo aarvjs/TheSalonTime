@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../home/services/customer_location_state.dart';
+import '../../location/services/customer_location_service.dart';
 import '../../profile/services/customer_profile_service.dart';
 
 typedef VerificationFailedCallback = void Function(String errorMessage);
@@ -98,6 +100,8 @@ class CustomerAuthService {
     try {
       await _auth.signOut();
       CustomerProfileService.instance.clearLocalProfile();
+      CustomerLocationService.instance.resetForNewLogin();
+      await CustomerLocationState.instance.clearSavedLocation();
       developer.log('Customer signed out from Firebase Auth.');
     } catch (e) {
       developer.log('Error during sign out: $e', error: e);
