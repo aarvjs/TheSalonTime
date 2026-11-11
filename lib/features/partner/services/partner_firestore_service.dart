@@ -580,6 +580,193 @@ class PartnerFirestoreService {
   }
 
   // ==========================================
+  // SALON-SPECIFIC SERVICES MANAGEMENT (UNLIMITED)
+  // ==========================================
+
+  /// Upload salon service photo to Firebase Storage and return download URL
+  Future<String> uploadSalonServicePhoto({
+    required String salonId,
+    required String serviceId,
+    required File file,
+  }) async {
+    try {
+      final fileName = 'srv_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = _storage
+          .ref()
+          .child('salon_services')
+          .child(salonId)
+          .child(serviceId)
+          .child(fileName);
+
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'salonId': salonId,
+          'serviceId': serviceId,
+        },
+      );
+
+      final uploadTask = await storageRef.putFile(file, metadata);
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e, stack) {
+      developer.log('Error uploading salon service photo: $e', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// Fetch all services specifically belonging to a salon location
+  Future<List<SalonServiceModel>> fetchSalonServices(String salonId) async {
+    if (salonId.isEmpty) return const [];
+    try {
+      // 1. Fetch from subcollection `salons/{salonId}/services`
+      final subSnap = await _salonsCol
+          .doc(salonId)
+          .collection('services')
+          .get();
+
+      if (subSnap.docs.isNotEmpty) {
+        return subSnap.docs
+            .map((doc) => SalonServiceModel.fromMap(doc.data(), doc.id))
+            .toList();
+      }
+
+      // 2. Backward compatibility fallback: check `services` array on salon document
+      final doc = await _salonsCol.doc(salonId).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final rawServices = data['services'];
+        if (rawServices is List && rawServices.isNotEmpty) {
+          final list = <SalonServiceModel>[];
+          for (final s in rawServices) {
+            if (s is Map<String, dynamic>) {
+              list.add(SalonServiceModel.fromMap(s));
+            } else if (s is Map) {
+              list.add(SalonServiceModel.fromMap(Map<String, dynamic>.from(s)));
+            }
+          }
+          return list;
+        }
+      }
+      return const [];
+    } catch (e) {
+      developer.log('Error fetching salon services: $e');
+      return const [];
+    }
+  }
+
+  /// Add or update a salon-specific service in Firestore
+  /// (synchronizes both `salons/{salonId}/services/{serviceId}` and the salon's `services` array)
+  Future<void> saveSalonService({
+    required String salonId,
+    required SalonServiceModel service,
+    required String partnerId,
+  }) async {
+    if (salonId.isEmpty) return;
+    try {
+      final serviceMap = {
+        'id': service.id,
+        'serviceId': service.id,
+        'salonId': salonId,
+        'partnerId': partnerId,
+        'name': service.name,
+        'serviceName': service.name,
+        'category': service.category,
+        'categoryId': service.category.toLowerCase().replaceAll(' ', '_'),
+        'description': service.description,
+        'durationMinutes': service.durationMinutes,
+        'price': service.price,
+        if (service.offerPrice != null) 'offerPrice': service.offerPrice,
+        if (service.offerPrice != null) 'discountPrice': service.offerPrice,
+        if (service.imageUrl != null) 'imageUrl': service.imageUrl,
+        'availableAtSalon': service.availableAtSalon,
+        'availableAtHome': service.availableAtHome,
+        'isActive': service.isActive,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // 1. Write to subcollection `salons/{salonId}/services/{service.id}`
+      await _salonsCol
+          .doc(salonId)
+          .collection('services')
+          .doc(service.id)
+          .set(serviceMap, SetOptions(merge: true));
+
+      // 2. Synchronize to `salons/{salonId}` document's `services` array for backward compatibility
+      final salonDoc = await _salonsCol.doc(salonId).get();
+      if (salonDoc.exists && salonDoc.data() != null) {
+        final data = salonDoc.data()!;
+        final raw = data['services'];
+        final List<Map<String, dynamic>> currentList = [];
+        if (raw is List) {
+          for (final item in raw) {
+            if (item is Map) currentList.add(Map<String, dynamic>.from(item));
+          }
+        }
+
+        final existingIdx = currentList.indexWhere((s) => s['id'] == service.id || s['serviceId'] == service.id);
+        if (existingIdx != -1) {
+          currentList[existingIdx] = service.toMap();
+        } else {
+          currentList.add(service.toMap());
+        }
+
+        await _salonsCol.doc(salonId).update({
+          'services': currentList,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      developer.log('Salon service saved: ${service.name} for salon $salonId');
+    } catch (e, stack) {
+      developer.log('Error saving salon service: $e', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// Delete a salon-specific service safely from Firestore
+  Future<void> deleteSalonService({
+    required String salonId,
+    required String serviceId,
+  }) async {
+    if (salonId.isEmpty || serviceId.isEmpty) return;
+    try {
+      // 1. Delete from subcollection
+      await _salonsCol
+          .doc(salonId)
+          .collection('services')
+          .doc(serviceId)
+          .delete();
+
+      // 2. Remove from salon document array
+      final salonDoc = await _salonsCol.doc(salonId).get();
+      if (salonDoc.exists && salonDoc.data() != null) {
+        final data = salonDoc.data()!;
+        final raw = data['services'];
+        if (raw is List) {
+          final List<Map<String, dynamic>> currentList = [];
+          for (final item in raw) {
+            if (item is Map) {
+              final mapItem = Map<String, dynamic>.from(item);
+              if (mapItem['id'] != serviceId && mapItem['serviceId'] != serviceId) {
+                currentList.add(mapItem);
+              }
+            }
+          }
+          await _salonsCol.doc(salonId).update({
+            'services': currentList,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+      developer.log('Salon service deleted: $serviceId from salon $salonId');
+    } catch (e, stack) {
+      developer.log('Error deleting salon service: $e', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  // ==========================================
   // HOME SERVICE PROFESSIONAL PROFILE
   // ==========================================
 

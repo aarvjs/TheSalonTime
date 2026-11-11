@@ -49,6 +49,7 @@ class AppColors {
   static const Color warmGray = Color(0xFFF3EFEA);
   static const Color softWarmGray = Color(0xFFE6E1DA);
   static const Color mutedTextGray = Color(0xFF7A7571);
+  static const Color errorRed = Color(0xFFDC2626);
 
   // Female Theme Specific
   static const Color softRose = Color(0xFFD98880);

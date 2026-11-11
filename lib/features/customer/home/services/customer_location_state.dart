@@ -115,6 +115,13 @@ class CustomerLocationState extends ChangeNotifier {
       final List<SalonModel> parsedSalons = [];
 
       for (final doc in snap.docs) {
+        // Exclude system platform metadata documents
+        if (doc.id == 'featured_services_data' ||
+            (doc.data()['isSystemDoc'] as bool? ?? false) ||
+            doc.data()['isSalon'] == false) {
+          continue;
+        }
+
         final data = doc.data();
         final isOpen = (data['isActive'] as bool?) ?? (data['salonStatus'] as bool?) ?? true;
         if (!isOpen) continue;
@@ -309,6 +316,13 @@ class CustomerLocationState extends ChangeNotifier {
       final List<SalonModel> parsedSalons = [];
 
       for (final doc in snap.docs) {
+        // Exclude system platform metadata documents
+        if (doc.id == 'featured_services_data' ||
+            (doc.data()['isSystemDoc'] as bool? ?? false) ||
+            doc.data()['isSalon'] == false) {
+          continue;
+        }
+
         final data = doc.data();
         final isOpen = (data['isActive'] as bool?) ?? (data['salonStatus'] as bool?) ?? true;
         if (!isOpen) continue; // Only show active salons

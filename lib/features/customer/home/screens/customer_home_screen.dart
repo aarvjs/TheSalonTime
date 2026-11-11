@@ -17,6 +17,9 @@ import '../widgets/product_section.dart';
 import '../widgets/salon_section.dart';
 import '../widgets/service_section.dart';
 import '../../salon/screens/customer_salon_details_screen.dart';
+import '../models/home_slider_model.dart';
+import '../services/home_slider_service.dart';
+import '../widgets/featured_services_section.dart';
 
 class CustomerHomeScreen extends StatelessWidget {
   const CustomerHomeScreen({super.key});
@@ -213,8 +216,29 @@ class CustomerHomeScreen extends StatelessWidget {
                       children: [
                         const SizedBox(height: 10),
 
-                        // Promotional Banner Slider
-                        HomeBannerSlider(banners: banners),
+                        // Promotional Dynamic Banner Slider (Controlled by Super Admin & Filtered by Location)
+                        StreamBuilder<List<HomeSliderModel>>(
+                          stream: HomeSliderService.instance.streamActiveSliders(),
+                          builder: (context, snapshot) {
+                            final allDynamicSliders = snapshot.data ?? [];
+
+                            // Filter eligible sliders based on customer's actual coordinates & custom radius
+                            final eligibleSliders = HomeSliderService.instance.filterEligibleSliders(
+                              sliders: allDynamicSliders,
+                              userLat: locationState.userLat,
+                              userLng: locationState.userLng,
+                              hasSavedLocation: locationState.hasSavedLocation,
+                              isGpsActive: locationState.isGpsActive,
+                              isSkipped: locationState.isSkipped,
+                              registeredSalons: locationState.strictlyNearestSalons,
+                            );
+
+                            return HomeBannerSlider(
+                              dynamicSliders: eligibleSliders.isNotEmpty ? eligibleSliders : null,
+                              banners: eligibleSliders.isEmpty ? banners : null,
+                            );
+                          },
+                        ),
                         const SizedBox(height: 24),
 
                         // Turn on GPS Banner prompt if location is not GPS active and user skipped or has no saved location
@@ -263,11 +287,8 @@ class CustomerHomeScreen extends StatelessWidget {
                           const SizedBox(height: 20),
                         ],
 
-                        // Explore Categories (Compact circular)
-                        CategorySection(
-                          categories: categories,
-                          onCategorySelected: (cat) {},
-                        ),
+                        // Dynamic Featured Services (Images managed by Super Admin, filtered by location on tap)
+                        const FeaturedServicesSection(),
                         const SizedBox(height: 24),
 
                         // Salons Near You (100% Dynamic from Firebase, sorted by distance)

@@ -318,6 +318,16 @@ service cloud.firestore {
     match /salons/{salonId} {
       // Anyone can read and update salon locations
       allow read, write: if true;
+
+      // SALON-SPECIFIC SERVICES SUBCOLLECTION
+      match /services/{serviceId} {
+        allow read: if true;
+        allow write, delete: if signedIn() && (
+          isSuperAdmin() ||
+          get(/databases/$(database)/documents/salons/$(salonId)).data.partnerId == request.auth.uid ||
+          get(/databases/$(database)/documents/salons/$(salonId)).data.ownerId == request.auth.uid
+        );
+      }
     }
 
     // MULTIPLE SALON BRANCHES (BACKWARD COMPATIBILITY MIRROR)
@@ -408,6 +418,28 @@ service cloud.firestore {
 
       // Super admins cannot be deleted from client SDK
       allow delete: if false;
+    }
+
+    // HOME PROMOTIONAL SLIDERS
+    match /homeSliders/{sliderId} {
+      allow read: if true;
+      allow create, delete: if signedIn() || isSuperAdmin();
+      allow update: if signedIn() || isSuperAdmin()
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clickCount'])
+          && request.resource.data.clickCount == resource.data.clickCount + 1
+        );
+
+      // Slider click tracking subcollection
+      match /clicks/{clickId} {
+        allow read, write: if true;
+      }
+    }
+
+    // HOME FEATURED SERVICES (SUPER ADMIN MANAGED)
+    match /featuredServices/{serviceId} {
+      allow read: if true;
+      allow write: if signedIn() || isSuperAdmin();
     }
   }
 }

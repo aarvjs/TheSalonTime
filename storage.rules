@@ -45,6 +45,43 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Home promotional sliders
+    match /home_sliders/{sliderId}/{fileName} {
+      allow read: if true;
+      allow write: if (isAuthenticated() || isSuperAdmin())
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAuthenticated() || isSuperAdmin();
+    }
+
+    // Featured Services (Super Admin managed)
+    match /featured_services/{serviceId}/{fileName} {
+      allow read: if true;
+      allow write: if (isAuthenticated() || isSuperAdmin())
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAuthenticated() || isSuperAdmin();
+    }
+
+    // Salon-specific Services (Partner managed)
+    match /salon_services/{salonId}/{serviceId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated()
+        && (
+          isSuperAdmin() ||
+          firestore.get(/databases/(default)/documents/salons/$(salonId)).data.partnerId == request.auth.uid ||
+          firestore.get(/databases/(default)/documents/salons/$(salonId)).data.ownerId == request.auth.uid
+        )
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAuthenticated()
+        && (
+          isSuperAdmin() ||
+          firestore.get(/databases/(default)/documents/salons/$(salonId)).data.partnerId == request.auth.uid ||
+          firestore.get(/databases/(default)/documents/salons/$(salonId)).data.ownerId == request.auth.uid
+        );
+    }
+
     // Fallback rule
     match /{allPaths=**} {
       allow read: if isAuthenticated();

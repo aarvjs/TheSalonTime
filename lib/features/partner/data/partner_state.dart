@@ -144,6 +144,31 @@ class PartnerState extends ChangeNotifier {
   List<PartnerNotificationModel> get notifications => List.unmodifiable(_notifications);
   String get selectedBranchId => _selectedBranchId;
 
+  String? _selectedServiceSalonId;
+  String get selectedServiceSalonId {
+    if (_selectedServiceSalonId != null && _selectedServiceSalonId!.isNotEmpty) {
+      return _selectedServiceSalonId!;
+    }
+    return _salons.isNotEmpty ? _salons.first.salonId : '';
+  }
+
+  void setSelectedServiceSalon(String salonId) {
+    _selectedServiceSalonId = salonId;
+    notifyListeners();
+  }
+
+  /// Returns services specifically belonging to the selected salon location
+  List<SalonServiceModel> get currentSalonServices {
+    final sId = selectedServiceSalonId;
+    if (sId.isEmpty && _salons.isEmpty) return List.unmodifiable(_services);
+    final targetSalon = _salons.where((s) => s.salonId == sId).firstOrNull ??
+        (_salons.isNotEmpty ? _salons.first : null);
+    if (targetSalon != null) {
+      return List.unmodifiable(targetSalon.services);
+    }
+    return List.unmodifiable(_services);
+  }
+
   // Active Business Model
   PartnerBusinessModel get businessModel => _partner.businessModel;
   PartnerBusinessModel get activeBusinessModel => _partner.activeBusinessModel;
@@ -633,40 +658,164 @@ class PartnerState extends ChangeNotifier {
   }
 
   void addService(SalonServiceModel service) {
-    _services.insert(0, service);
-    if (_salons.isNotEmpty) {
-      final s = _salons.first;
-      final updatedServices = List<SalonServiceModel>.from(s.services)..insert(0, service);
-      updateSalon(s.copyWith(services: updatedServices));
-    }
-    notifyListeners();
-  }
-
-  void updateService(SalonServiceModel service) {
-    final index = _services.indexWhere((s) => s.id == service.id);
-    if (index != -1) {
-      _services[index] = service;
+    final targetSalonId = selectedServiceSalonId;
+    if (targetSalonId.isNotEmpty) {
+      addServiceToSalon(targetSalonId, service);
+    } else {
+      _services.insert(0, service);
       if (_salons.isNotEmpty) {
         final s = _salons.first;
-        final updatedServices = s.services.map((srv) => srv.id == service.id ? service : srv).toList();
+        final updatedServices = List<SalonServiceModel>.from(s.services)..insert(0, service);
         updateSalon(s.copyWith(services: updatedServices));
       }
       notifyListeners();
+    }
+  }
+
+  /// Add a service specifically to a salon location
+  Future<void> addServiceToSalon(String salonId, SalonServiceModel service) async {
+    final idx = _salons.indexWhere((s) => s.salonId == salonId);
+    if (idx != -1) {
+      final s = _salons[idx];
+      final updatedList = List<SalonServiceModel>.from(s.services)..insert(0, service);
+      final updatedSalon = s.copyWith(services: updatedList);
+      _salons[idx] = updatedSalon;
+      if (_salon.salonId == salonId) _salon = updatedSalon;
+    }
+
+    _services.removeWhere((srv) => srv.id == service.id);
+    _services.insert(0, service);
+    notifyListeners();
+
+    try {
+      await PartnerFirestoreService.instance.saveSalonService(
+        salonId: salonId,
+        service: service,
+        partnerId: _partner.id.isNotEmpty ? _partner.id : (FirebaseAuth.instance.currentUser?.uid ?? ''),
+      );
+    } catch (_) {}
+  }
+
+  /// Update a service specifically in a salon location
+  Future<void> updateServiceInSalon(String salonId, SalonServiceModel service) async {
+    final idx = _salons.indexWhere((s) => s.salonId == salonId);
+    if (idx != -1) {
+      final s = _salons[idx];
+      final updatedList = s.services.map((srv) => srv.id == service.id ? service : srv).toList();
+      final updatedSalon = s.copyWith(services: updatedList);
+      _salons[idx] = updatedSalon;
+      if (_salon.salonId == salonId) _salon = updatedSalon;
+    }
+
+    final globalIdx = _services.indexWhere((srv) => srv.id == service.id);
+    if (globalIdx != -1) {
+      _services[globalIdx] = service;
+    }
+    notifyListeners();
+
+    try {
+      await PartnerFirestoreService.instance.saveSalonService(
+        salonId: salonId,
+        service: service,
+        partnerId: _partner.id.isNotEmpty ? _partner.id : (FirebaseAuth.instance.currentUser?.uid ?? ''),
+      );
+    } catch (_) {}
+  }
+
+  /// Delete a service specifically from a salon location
+  Future<void> deleteServiceFromSalon(String salonId, String serviceId) async {
+    final idx = _salons.indexWhere((s) => s.salonId == salonId);
+    if (idx != -1) {
+      final s = _salons[idx];
+      final updatedList = s.services.where((srv) => srv.id != serviceId).toList();
+      final updatedSalon = s.copyWith(services: updatedList);
+      _salons[idx] = updatedSalon;
+      if (_salon.salonId == salonId) _salon = updatedSalon;
+    }
+
+    _services.removeWhere((srv) => srv.id == serviceId);
+    notifyListeners();
+
+    try {
+      await PartnerFirestoreService.instance.deleteSalonService(
+        salonId: salonId,
+        serviceId: serviceId,
+      );
+    } catch (_) {}
+  }
+
+  /// Toggle service active status for a specific salon location
+  Future<void> toggleServiceStatusInSalon(String salonId, String serviceId) async {
+    final idx = _salons.indexWhere((s) => s.salonId == salonId);
+    if (idx != -1) {
+      final s = _salons[idx];
+      SalonServiceModel? targetService;
+      final updatedList = s.services.map((srv) {
+        if (srv.id == serviceId) {
+          final updated = srv.copyWith(isActive: !srv.isActive);
+          targetService = updated;
+          return updated;
+        }
+        return srv;
+      }).toList();
+
+      final updatedSalon = s.copyWith(services: updatedList);
+      _salons[idx] = updatedSalon;
+      if (_salon.salonId == salonId) _salon = updatedSalon;
+
+      final gIdx = _services.indexWhere((srv) => srv.id == serviceId);
+      if (gIdx != -1 && targetService != null) {
+        _services[gIdx] = targetService!;
+      }
+      notifyListeners();
+
+      if (targetService != null) {
+        try {
+          await PartnerFirestoreService.instance.saveSalonService(
+            salonId: salonId,
+            service: targetService!,
+            partnerId: _partner.id.isNotEmpty ? _partner.id : (FirebaseAuth.instance.currentUser?.uid ?? ''),
+          );
+        } catch (_) {}
+      }
+    }
+  }
+
+  void updateService(SalonServiceModel service) {
+    final targetSalonId = selectedServiceSalonId;
+    if (targetSalonId.isNotEmpty) {
+      updateServiceInSalon(targetSalonId, service);
+    } else {
+      final index = _services.indexWhere((s) => s.id == service.id);
+      if (index != -1) {
+        _services[index] = service;
+        if (_salons.isNotEmpty) {
+          final s = _salons.first;
+          final updatedServices = s.services.map((srv) => srv.id == service.id ? service : srv).toList();
+          updateSalon(s.copyWith(services: updatedServices));
+        }
+        notifyListeners();
+      }
     }
   }
 
   void toggleServiceStatus(String serviceId) {
-    final index = _services.indexWhere((s) => s.id == serviceId);
-    if (index != -1) {
-      final current = _services[index];
-      final updated = current.copyWith(isActive: !current.isActive);
-      _services[index] = updated;
-      if (_salons.isNotEmpty) {
-        final s = _salons.first;
-        final updatedServices = s.services.map((srv) => srv.id == serviceId ? updated : srv).toList();
-        updateSalon(s.copyWith(services: updatedServices));
+    final targetSalonId = selectedServiceSalonId;
+    if (targetSalonId.isNotEmpty) {
+      toggleServiceStatusInSalon(targetSalonId, serviceId);
+    } else {
+      final index = _services.indexWhere((s) => s.id == serviceId);
+      if (index != -1) {
+        final current = _services[index];
+        final updated = current.copyWith(isActive: !current.isActive);
+        _services[index] = updated;
+        if (_salons.isNotEmpty) {
+          final s = _salons.first;
+          final updatedServices = s.services.map((srv) => srv.id == serviceId ? updated : srv).toList();
+          updateSalon(s.copyWith(services: updatedServices));
+        }
+        notifyListeners();
       }
-      notifyListeners();
     }
   }
 

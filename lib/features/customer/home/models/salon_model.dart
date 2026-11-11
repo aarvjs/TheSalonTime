@@ -52,6 +52,10 @@ class SalonModel {
     this.isFavorite = false,
   });
 
+  /// Alias getters for compatibility across services
+  bool get isActive => isOpen;
+  String get imageUrl => imagePath;
+
   SalonModel copyWith({
     String? id,
     String? partnerId,
